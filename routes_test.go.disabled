@@ -1,0 +1,32 @@
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Controller", func() {
+
+	var r *gin.Engine
+
+	Describe("AddRoutes", func() {
+
+		BeforeEach(func() {
+			r = gin.New()
+		})
+
+		JustBeforeEach(func() {
+			AddRoutes(r)
+		})
+
+		Describe("when alls good", func() {
+
+			It("should add routes to router", func() {
+				Expect(r).ToNot(BeNil())
+			})
+		})
+
+	})
+})

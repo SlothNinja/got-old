@@ -1,0 +1,77 @@
+package main
+
+import (
+	"net/http"
+	"strconv"
+
+	"bitbucket.org/SlothNinja/log"
+	"bitbucket.org/SlothNinja/status"
+	"bitbucket.org/SlothNinja/store"
+	"bitbucket.org/SlothNinja/user"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+)
+
+// Drop provides a handler for dropping from a game invitation.
+func Drop(param string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log.Debugf("Entering")
+		defer log.Debugf("Exiting")
+
+		hid, err := strconv.ParseInt(c.Param(param), 10, 64)
+		if err != nil {
+			err = errors.WithMessage(err, "unable to get header id")
+			return
+		}
+
+		client, err := store.New(c)
+		if err != nil {
+			err = errors.WithMessage(err, "unable to connect to datastore")
+			return
+		}
+		e := newHeaderEntity(newGame(hid))
+
+		err = client.Get(c, e.Key, e)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": errUnexpected.Error()})
+			return
+		}
+
+		cu, found := user.Current(c)
+		if !found {
+			log.Errorf("unable to find current user")
+			c.JSON(http.StatusOK, gin.H{"message": "unable to find current user"})
+			return
+		}
+
+		e, err = e.Drop(cu)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": errUnexpected.Error()})
+			return
+		}
+
+		if len(e.Users) == 0 {
+			e.Status = status.Aborted
+		}
+
+		_, err = client.Put(c, e.Key, e)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": errUnexpected.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, struct {
+			Header  headerEntity `json:"header"`
+			Message string       `json:"message"`
+			Error   bool         `json:"error"`
+		}{
+			Header:  e,
+			Message: cu.Name + " left invitation for game \"" + e.Title + "\"",
+			Error:   false,
+		})
+	}
+}

@@ -1,0 +1,126 @@
+package main
+
+import (
+	"encoding/json"
+	"strings"
+)
+
+// Kind is used to specify what kind a card has.
+type Kind int
+
+const (
+	// None indicates the card has no kind or is not present.
+	None Kind = iota
+	// Lamp indicates the card is a lamp card.
+	Lamp
+	// Camel indicates the card is a carmel card.
+	Camel
+	// Sword indicates the card is a sword card.
+	Sword
+	// Carpet indicates the card is a carpet card.
+	Carpet
+	// Coins indicates the card is a coins card.
+	Coins
+	// Turban indicates the card is a turban card.
+	Turban
+	// Jewels indicates the card is a jewels card.
+	Jewels
+	// Guard indicates the card is a guard card.
+	Guard
+	// SCamel indicates the card is a starting camel card.
+	SCamel
+	// SLamp indicates the card is a starting lamp card.
+	SLamp
+)
+
+// MarshalJSON implements the json.Marshaler interface for Kind.
+func (k Kind) MarshalJSON() ([]byte, error) {
+	return json.Marshal(k.IDString())
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for Kind.
+func (k *Kind) UnmarshalJSON(bs []byte) (err error) {
+	var s string
+
+	if err = json.Unmarshal(bs, &s); err == nil {
+		*k = kindFor(s)
+	}
+	return
+}
+
+// kindFor returns the Kind represented by the string.
+func kindFor(s string) Kind {
+	switch s = strings.ToLower(s); s {
+	case "lamp":
+		return Lamp
+	case "camel":
+		return Camel
+	case "sword":
+		return Sword
+	case "carpet":
+		return Carpet
+	case "coins":
+		return Coins
+	case "turban":
+		return Turban
+	case "jewels":
+		return Jewels
+	case "guard":
+		return Guard
+	case "start-camel":
+		return SCamel
+	case "start-lamp":
+		return SLamp
+	default:
+		return None
+	}
+}
+
+// String returns a string representation of the Kind.
+// String does not distinguish between Camel and SCamel kinds.
+// String also does not distinguish between Lamp and SLamp kinds.
+func (k Kind) String() string {
+	switch k {
+	case Lamp:
+		return "Lamp"
+	case Camel:
+		return "Camel"
+	case Sword:
+		return "Sword"
+	case Carpet:
+		return "Carpet"
+	case Coins:
+		return "Coins"
+	case Turban:
+		return "Turban"
+	case Jewels:
+		return "Jewels"
+	case Guard:
+		return "Guard"
+	case SCamel:
+		return "Camel"
+	case SLamp:
+		return "Lamp"
+	default:
+		return "None"
+	}
+}
+
+// LString returns a lower case representation of the Kind.
+func (k Kind) LString() string {
+	return strings.ToLower(k.String())
+}
+
+// IDString returns a lower case representation of the Kind.
+// IDString distinguishes between Camel and SCamel kinds.
+// IDString also distinguish between Lamp and SLamp kinds.
+func (k Kind) IDString() string {
+	switch k {
+	case SCamel:
+		return "start-camel"
+	case SLamp:
+		return "start-lamp"
+	default:
+		return k.LString()
+	}
+}

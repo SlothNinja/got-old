@@ -1,0 +1,80 @@
+package controller
+
+import (
+	"net/http"
+
+	"bitbucket.org/SlothNinja/sn/log"
+	"bitbucket.org/SlothNinja/sn"
+	"bitbucket.org/SlothNinja/sn/user"
+
+	"github.com/gin-gonic/gin"
+)
+
+func Undo() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := sn.Context(c)
+		log.Debugf(ctx, "Entering")
+		defer log.Debugf(ctx, "Exiting")
+
+		var (
+			g     *game.Game
+			hid   int64
+			cu    user.User
+			found bool
+			err   error
+		)
+
+		if hid, err = header.GetHID(c); err != nil {
+			sn.Errorf(c, "Unable to load game.  Inform webmaster if error persists.")
+			return
+		}
+
+		if g, err = game.Get(ctx, hid); err != nil {
+			sn.Errorf(c, "Unable to load game.  Inform webmaster if error persists.")
+			return
+		}
+
+		if cu, found = user.Current(ctx); !found {
+			sn.Errorf(c, "current user not found")
+			return
+		}
+
+		if err = g.Undo(ctx, cu); err != nil {
+			sn.Error(c, err)
+			return
+		}
+
+		// if cp, found = g.currentPlayerFor(cu); !found || !g.CPorAdmin(cp.ID, cu) {
+		// 	sn.Errorf(c, "Only the current player can perform an action.")
+		// 	return
+		// }
+
+		// if g.UndoStack.Undo() {
+		// 	if err = datastore.Put(ctx, g.Header); err != nil {
+		// 		sn.Errorf(c, "Unable to Undo game.  Inform webmaster if error persists.")
+		// 		return
+		// 	}
+		// 	if g, err = Get(ctx, hid); err != nil {
+		// 		sn.Errorf(c, "Unable to Undo game.  Inform webmaster if error persists.")
+		// 		return
+		// 	}
+
+		// 	// Update cp and clickable areas for loaded game.
+		// 	if cp, found = g.currentPlayerFor(cu); !found {
+		// 		sn.Errorf(c, "current player not found")
+		// 		return
+		// 	}
+		// 	g.updateClickable(cu, cp)
+		// }
+
+		c.JSON(http.StatusOK, struct {
+			Game    *game.Game `json:"game"`
+			Message string     `json:"message"`
+			Error   bool       `json:"error"`
+		}{
+			Game:    g,
+			Message: "",
+			Error:   false,
+		})
+	}
+}

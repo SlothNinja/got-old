@@ -1,0 +1,12 @@
+start backend
+----------------------------
+PORT=8083 HOST=http://got.slothninja.com:8083 USER_DATASTORE_PROJECT_ID=user-slothninja-games USER_DATASTORE_EMULATOR_HOST=user.slothninja.com:8081 DATASTORE_PROJECT_ID=got-slothninja-games DATASTORE_EMULATOR_HOST=got.slothninja.com:8084 DEV=true gin -p 3003 -a 8083 -i -t ../ -d . run main.go
+
+
+start database
+------------------------------
+gcloud beta emulators datastore start --data-dir /Volumes/Janice/datastore/got/ --host-port got.slothninja.com:8084
+
+watch frontend
+------------------------------
+npm run watch

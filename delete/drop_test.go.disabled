@@ -1,0 +1,233 @@
+package controller-test
+
+import (
+	"net/http"
+	"net/http/httptest"
+
+	"bitbucket.org/SlothNinja/sn"
+	"bitbucket.org/SlothNinja/sn/status"
+	"bitbucket.org/SlothNinja/sn/user"
+	"github.com/gin-gonic/gin"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"go.chromium.org/gae/service/datastore"
+	"golang.org/x/net/context"
+)
+
+var _ = Describe("Drop from invitation action", func() {
+	var (
+		c          *gin.Context
+		h          *header.Header
+		numUsers   int
+		msg        string
+		resp       *httptest.ResponseRecorder
+		ctx        context.Context
+		u1, u2, u3 user.User
+		jerr       bool
+		err        error
+	)
+
+	BeforeEach(func() {
+		resp = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(resp)
+		ctx = sn.Context(c)
+
+		h = header.New(ctx, 1)
+		h.NumPlayers = 3
+		h.Status = status.Recruiting
+		err = datastore.Put(ctx, h)
+		Expect(err).NotTo(HaveOccurred())
+
+		u1 = user.New(ctx)
+		u1.ID = user.ID("1")
+		u1.Name = "SlothNinja1"
+
+		u2 = user.New(ctx)
+		u2.ID = user.ID("2")
+		u2.Name = "steve2"
+
+		u3 = user.New(ctx)
+		u3.ID = user.ID("3")
+		u3.Name = "george3"
+
+		err = datastore.Put(ctx, &u1, &u2, &u3)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	JustBeforeEach(func() {
+		h, err = header.Get(ctx, 1)
+		Expect(err).ToNot(HaveOccurred())
+		numUsers = len(h.Users)
+
+		drop()(c)
+
+		msg, jerr, err = testGetMsg(resp)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AssertFailedBehavior := func() {
+		It("should not drop a user from game invitation", func() {
+			h, err = header.Get(ctx, 1)
+			Expect(err).To(BeNil())
+			Expect(h.Users).To(HaveLen(numUsers))
+		})
+
+		It("should return an OK status", func() {
+			Expect(resp.Result().StatusCode).To(Equal(http.StatusOK))
+		})
+
+		It("should indicate jerr is true", func() {
+			Expect(jerr).To(BeTrue())
+		})
+
+		It("should have recruiting status", func() {
+			h, err = header.Get(ctx, 1)
+			Expect(err).To(BeNil())
+			Expect(h.Status).To(Equal(status.Recruiting))
+		})
+	}
+
+	Describe("when there is no header id", func() {
+
+		BeforeEach(func() {
+			c.Request = httptest.NewRequest(http.MethodPost, gamePath+dropPath+"/1", nil)
+		})
+
+		It("should warn of missing header id", func() {
+			Expect(msg).To(ContainSubstring("unable to get header id"))
+		})
+
+		AssertFailedBehavior()
+
+	})
+
+	Describe("when there is no header", func() {
+
+		BeforeEach(func() {
+			c.Request = httptest.NewRequest(http.MethodPost, gamePath+dropPath+"/2", nil)
+			c.Params = gin.Params{gin.Param{"hid", "2"}}
+		})
+
+		It("should warn of missing header", func() {
+			Expect(msg).To(ContainSubstring("unable to get header"))
+		})
+
+		AssertFailedBehavior()
+
+	})
+
+	Describe("when there is no current user", func() {
+
+		BeforeEach(func() {
+			c.Request = httptest.NewRequest(http.MethodPost, gamePath+dropPath+"/1", nil)
+			c.Params = gin.Params{gin.Param{"hid", "1"}}
+		})
+
+		It("should warn of missing current user", func() {
+			Expect(msg).To(ContainSubstring("current user not found"))
+		})
+
+		AssertFailedBehavior()
+	})
+
+	Describe("when there is a current user", func() {
+
+		BeforeEach(func() {
+			c.Request = httptest.NewRequest(http.MethodPost, gamePath+dropPath+"/1", nil)
+			c.Params = gin.Params{gin.Param{"hid", "1"}}
+
+			user.WithCurrent(c, u1)
+		})
+
+		It("should not warn of missing current user", func() {
+			Expect(msg).ToNot(ContainSubstring("current user not found"))
+		})
+
+		Context("when no users have joined invitation", func() {
+
+			It("should warn that current user has not joined invitation", func() {
+				Expect(msg).To(ContainSubstring("not joined"))
+			})
+
+			AssertFailedBehavior()
+		})
+
+		Context("when another user has joined invitation", func() {
+
+			BeforeEach(func() {
+				h.Accept(c, u2)
+				err = datastore.Put(ctx, h)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should warn that current user has not joined invitation", func() {
+				Expect(msg).To(ContainSubstring("not joined"))
+			})
+
+			AssertFailedBehavior()
+		})
+
+		Context("when user has joined invitation", func() {
+
+			BeforeEach(func() {
+				h.Accept(c, u1)
+				err = datastore.Put(ctx, h)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should not warn that current user has not joined invitation", func() {
+				Expect(msg).ToNot(ContainSubstring("not joined"))
+			})
+
+			It("should not indicate user dropped game invitation", func() {
+				Expect(msg).To(ContainSubstring("left invitation"))
+			})
+
+			It("should return an OK status", func() {
+				Expect(resp.Result().StatusCode).To(Equal(http.StatusOK))
+			})
+
+			It("should indicate jerr is false", func() {
+				Expect(jerr).To(BeFalse())
+			})
+
+			Context("when not last user joined to invitation", func() {
+				BeforeEach(func() {
+					h.Accept(c, u2)
+					err = datastore.Put(ctx, h)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("should have recruiting status", func() {
+					h, err = header.Get(ctx, 1)
+					Expect(err).To(BeNil())
+					Expect(h.Status).To(Equal(status.Recruiting))
+				})
+			})
+
+			Context("when last user joined to invitation", func() {
+				It("should have aborted status", func() {
+					h, err = header.Get(ctx, 1)
+					Expect(err).To(BeNil())
+					Expect(h.Status).To(Equal(status.Aborted))
+				})
+			})
+
+			Context("when unable to save to the datastore", func() {
+				BeforeEach(func() {
+					testBreakPut(c)
+				})
+
+				It("should not indicate user dropped game invitation", func() {
+					Expect(msg).ToNot(ContainSubstring("left invitation"))
+				})
+
+				It("should indicate unable to save", func() {
+					Expect(msg).To(ContainSubstring("unable to save"))
+				})
+
+				AssertFailedBehavior()
+			})
+		})
+	})
+})

@@ -1,0 +1,173 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+
+	"bitbucket.org/SlothNinja/got/game"
+	"bitbucket.org/SlothNinja/sn"
+	"bitbucket.org/SlothNinja/user"
+	"github.com/gin-gonic/gin"
+	"go.chromium.org/gae/filter/featureBreaker"
+	"go.chromium.org/gae/service/taskqueue"
+
+	"bitbucket.org/SlothNinja/store"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Controller", func() {
+	var (
+		g          *game.game
+		fb         featureBreaker.FeatureBreaker
+		h          *Header
+		c          *gin.Context
+		ctx        context.Context
+		s          *server
+		u1, u2, u3 *user.User
+		resp       *httptest.ResponseRecorder
+		msg        string
+		jerr       bool
+		tqt        taskqueue.Testable
+		err        error
+	)
+
+	BeforeEach(func() {
+		s = new(server)
+
+		resp = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(resp)
+		c.Request = httptest.NewRequest(http.MethodPost, gamePath+showPath+"/1", nil)
+		c.Params = gin.Params{
+			gin.Param{Key: hidParam, Value: "1"},
+			gin.Param{Key: countParam, Value: "1"},
+			gin.Param{Key: offsetParam, Value: "0"},
+		}
+
+		u1 = new(user.User)
+		u1.ID = user.ID("1")
+		u1.Name = "SlothNinja1"
+
+		u2 = new(user.User)
+		u2.ID = user.ID("2")
+		u2.Name = "steve2"
+
+		u3 = new(user.User)
+		u3.ID = user.ID("3")
+		u3.Name = "george3"
+
+		g = game.New()
+		g.Header.ID = 1
+		s.store = &store.Mock{games: []*game.game{g}}
+		s.store = &store.Mock{Headers: []*Header{g.Header}}
+
+		// Add taskqueue for ending games.
+		ctx, fb = featureBreaker.FilterTQ(sn.Context(c), errors.New("default error"))
+		sn.WithContext(c, ctx)
+		tqt = taskqueue.GetTestable(ctx)
+		tqt.CreateQueue("end")
+
+		user.WithCurrent(c, u1)
+	})
+
+	Describe("getGLog", func() {
+
+		BeforeEach(func() {
+			h = NewHeader()
+			h.ID = 1
+			h.Title = "New game"
+			h.NumPlayers = 2
+
+			s.store = &store.Mock{Headers: []*Header{h}}
+		})
+
+		JustBeforeEach(func() {
+			s.getGLog()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Describe("when there is no header id", func() {
+
+			BeforeEach(func() {
+				c.Params = gin.Params{
+					gin.Param{Key: countParam, Value: "1"},
+					gin.Param{Key: offsetParam, Value: "0"},
+				}
+			})
+
+			It("should warn of missing header id", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get header id"))
+			})
+		})
+
+		Describe("when unable to get header", func() {
+			BeforeEach(func() {
+				s.store = &store.Mock{GetError: errors.New("unable to get header")}
+			})
+
+			It("should warn that unable to get header", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get header"))
+			})
+		})
+
+		Describe("when unable to count", func() {
+			BeforeEach(func() {
+				c.Params = gin.Params{
+					gin.Param{Key: hidParam, Value: "1"},
+					gin.Param{Key: offsetParam, Value: "0"},
+				}
+			})
+
+			It("should warn that unable to get count", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get count"))
+			})
+		})
+
+		Describe("when unable to offset", func() {
+			BeforeEach(func() {
+				c.Params = gin.Params{
+					gin.Param{Key: hidParam, Value: "1"},
+					gin.Param{Key: countParam, Value: "1"},
+				}
+			})
+
+			It("should warn that unable to get offset", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get offset"))
+			})
+		})
+
+		Describe("when unable to get states", func() {
+			BeforeEach(func() {
+				s.sstore = &sstore.Mock{GetError: errors.New("unable to get states")}
+			})
+
+			It("should warn that unable to get offset", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get states"))
+			})
+		})
+
+		Describe("when alls good", func() {
+			BeforeEach(func() {
+				s.sstore = &sstore.Mock{
+					state: []*state{
+						NewState(),
+						NewState(),
+					},
+				}
+			})
+
+			It("should not warn", func() {
+				Expect(jerr).To(BeFalse())
+			})
+		})
+	})
+})

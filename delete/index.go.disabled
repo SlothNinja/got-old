@@ -1,0 +1,83 @@
+package controller
+
+import (
+	"net/http"
+
+	"bitbucket.org/SlothNinja/sn"
+	"bitbucket.org/SlothNinja/sn/log"
+	"bitbucket.org/SlothNinja/sn/status"
+	"bitbucket.org/SlothNinja/sn/user"
+
+	"github.com/gin-gonic/gin"
+
+	"go.chromium.org/gae/service/datastore"
+)
+
+// func (s *server) index() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		ctx := sn.Context(c)
+// 		log.Debugf(ctx, "Entering")
+// 		defer log.Debugf(ctx, "Exiting")
+//
+// 		cu, _ := user.Current(c)
+//
+// 		switch s := status.StatusFromParam(c); s {
+// 		case status.Recruiting:
+// 			c.HTML(http.StatusOK, "shared/invitation_index", gin.H{
+// 				"Context":   ctx,
+// 				"VersionID": info.VersionID(ctx),
+// 				"CUser":     cu,
+// 				"Type":      gtype.GOT.String(),
+// 			})
+// 		default:
+// 			c.HTML(http.StatusOK, "shared/games_index", gin.H{
+// 				"Context":   ctx,
+// 				"VersionID": info.VersionID(ctx),
+// 				"CUser":     cu,
+// 				"Type":      gtype.GOT.String(),
+// 				"Status":    s,
+// 			})
+// 		}
+// 	}
+// }
+
+func (s *server) jsonIndexAction() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := sn.Context(c)
+		log.Debugf(ctx, "Entering")
+		defer log.Debugf(ctx, "Exiting")
+
+		s := status.StatusFromParam(c)
+		q := datastore.
+			NewQuery("Header").
+			Eq("Status", s).
+			Order("-UpdatedAt").
+			KeysOnly(true)
+
+		var ks []*datastore.Key
+		if err := datastore.GetAll(ctx, q, &ks); err != nil {
+			sn.JError(c, err)
+			return
+		}
+
+		hs := make([]*header.Header, len(ks))
+		for i := range ks {
+			hs[i] = header.New()
+			hs[i].ID = ks[i].IntID()
+		}
+
+		if err := datastore.Get(ctx, hs); err != nil {
+			sn.JError(c, err)
+			return
+		}
+
+		cu, _ := user.Current(c)
+		c.JSON(http.StatusOK, struct {
+			Headers []*header.Header `json:"headers"`
+			CU      *user.User       `json:"cu"`
+		}{
+			Headers: hs,
+			CU:      cu,
+		})
+	}
+}

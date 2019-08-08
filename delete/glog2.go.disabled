@@ -1,0 +1,102 @@
+package main
+
+import (
+	"net/http"
+
+	"bitbucket.org/SlothNinja/log"
+	"bitbucket.org/SlothNinja/sn"
+	"cloud.google.com/go/datastore"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+)
+
+const batch int64 = 5
+
+func (s *server) getCount(c *gin.Context) (int64, error) {
+	count, err := sn.Int64Param(c, countParam)
+	if err != nil {
+		return -1, errors.WithMessage(err, "unable to get count")
+	}
+	return count, nil
+}
+
+func (s *server) getOffset(c *gin.Context) (int64, error) {
+	offset, err := sn.Int64Param(c, offsetParam)
+	if err != nil {
+		return -1, errors.WithMessage(err, "unable to get offset")
+	}
+	return offset, nil
+}
+
+func (s *server) getGLog(hidParam, countParam, offsetParam string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log.Debugf("Entering")
+		defer log.Debugf("Exiting")
+
+		param, err := s.getParam(c, param)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": unexpectedErr})
+			return
+		}
+
+		count, err := s.getCount(c)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": unexpectedErr})
+			return
+		}
+
+		offset, err := s.getOffset(c)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": unexpectedErr})
+			return
+		}
+
+		if count < 1 {
+			c.JSON(http.StatusOK, struct{}{})
+			return
+		}
+
+		id, l := count-offset, batch
+		if id < batch {
+			l = id
+		}
+
+		logs := make([]*glog, l)
+		ks := make([]*datastore.Key, l)
+		for i := range logs {
+			logs[i] = newGLog(param, id)
+			ks[i] = logs[i].Key
+			id--
+		}
+
+		err = ignore(s.GetMulti(c, ks, logs), datastore.ErrNoSuchEntity)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": unexpectedErr})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"offset": offset + l, "logs": logs})
+	}
+}
+
+func ignore(err error, ignore error) error {
+	if err == nil {
+		return nil
+	}
+
+	merr, ok := err.(datastore.MultiError)
+	if !ok {
+		return err
+	}
+
+	for _, e := range merr {
+		if e != nil && e != ignore {
+			return err
+		}
+	}
+	return nil
+}

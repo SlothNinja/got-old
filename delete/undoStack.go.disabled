@@ -1,0 +1,32 @@
+package main
+
+import (
+	"bitbucket.org/SlothNinja/user"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+)
+
+type stackAction func() bool
+
+func (g game) Undo(c *gin.Context, cu *user.User2) error {
+	return g.updateStack(c, g.Stack.Undo, cu)
+}
+
+func (g game) Redo(c *gin.Context, cu *user.User2) error {
+	return g.updateStack(c, g.Stack.Redo, cu)
+}
+
+func (g game) Reset(c *gin.Context, cu *user.User2) error {
+	return g.updateStack(c, g.Stack.Reset, cu)
+}
+
+func (g game) updateStack(c *gin.Context, act stackAction, cu *user.User2) (err error) {
+	cp, found := g.currentPlayerFor(cu)
+	if !found || !g.CPorAdmin(cp.ID, cu) {
+		err = errors.New("only the current player can perform an action")
+		return
+	}
+
+	act()
+	return
+}

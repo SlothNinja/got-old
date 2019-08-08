@@ -1,0 +1,406 @@
+package main
+
+import (
+	"errors"
+	"net/http"
+	"net/http/httptest"
+
+	"bitbucket.org/SlothNinja/got/game"
+	"bitbucket.org/SlothNinja/stack"
+	"bitbucket.org/SlothNinja/user"
+	"github.com/gin-gonic/gin"
+
+	"bitbucket.org/SlothNinja/store"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Controller", func() {
+	var (
+		c      *gin.Context
+		s      *server
+		g      *game.game
+		cu, u1 *user.User
+		resp   *httptest.ResponseRecorder
+		msg    string
+		jerr   bool
+		err    error
+	)
+
+	BeforeEach(func() {
+		s = new(server)
+
+		resp = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(resp)
+		c.Request = httptest.NewRequest(http.MethodPost, gamePath+showPath+"/1", nil)
+		c.Params = gin.Params{gin.Param{Key: "hid", Value: "1"}}
+
+		u1 = new(user.User)
+		u1.ID = user.ID("1")
+		u1.Name = "SlothNinja1"
+
+		g := game.New()
+		g.Header.ID = 1
+		s.store = &store.Mock{games: []*game.game{g}}
+
+		user.WithCurrent(c, u1)
+	})
+
+	Describe("before", func() {
+		JustBeforeEach(func() {
+			g, cu, err = s.before(c)
+		})
+
+		Describe("when there is no header id", func() {
+
+			BeforeEach(func() {
+				c.Params = nil
+			})
+
+			It("should warn of missing header id", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("unable to get header id"))
+			})
+		})
+
+		Describe("when unable to get game", func() {
+			BeforeEach(func() {
+				s.store = &store.Mock{GetError: errors.New("unable to get game")}
+			})
+
+			It("should warn of being unable to get game", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("unable to get game"))
+			})
+		})
+
+		Describe("when current user is missing", func() {
+
+			BeforeEach(func() {
+				user.WithCurrent(c, nil)
+			})
+
+			It("should warn that current user not found", func() {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("user not found"))
+			})
+		})
+
+		Describe("when all is good", func() {
+
+			It("should return a game", func() {
+				Expect(g).ToNot(BeNil())
+			})
+
+			It("should return the current user", func() {
+				Expect(cu).ToNot(BeNil())
+			})
+
+			It("should not error", func() {
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+		})
+	})
+
+	Describe("get", func() {
+		var (
+			act action
+		)
+
+		JustBeforeEach(func() {
+			s.get("hid", act)(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		BeforeEach(func() {
+			act = func(g *game.game, c *gin.Context, cu *user.User) error { return nil }
+		})
+
+		Describe("when there is no header id", func() {
+
+			BeforeEach(func() {
+				c.Params = nil
+			})
+
+			It("should warn of missing header id", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get header id"))
+			})
+		})
+
+		Describe("when action errors", func() {
+			BeforeEach(func() {
+				act = func(g *game.game, c *gin.Context, cu *user.User) error {
+					return errors.New("error")
+				}
+			})
+
+			It("should warn of action error", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("error"))
+			})
+		})
+
+		Describe("when all is good", func() {
+			It("should return a game", func() {
+				g, err = testGetgame(resp)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(g).ToNot(BeNil())
+			})
+		})
+	})
+
+	Describe("update", func() {
+		var (
+			act action
+			sf  stackFunc
+		)
+
+		JustBeforeEach(func() {
+			s.update("hid", act, sf)(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		BeforeEach(func() {
+			act = func(g *game.game, c *gin.Context, cu *user.User) error { return nil }
+			sf = func(s *stack.Stack) {}
+		})
+
+		Describe("when there is no header id", func() {
+
+			BeforeEach(func() {
+				c.Params = nil
+			})
+
+			It("should warn of missing header id", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get header id"))
+			})
+		})
+
+		Describe("when action errors", func() {
+			BeforeEach(func() {
+				act = func(g *game.game, c *gin.Context, cu *user.User) error {
+					return errors.New("error")
+				}
+			})
+
+			It("should warn of action error", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("error"))
+			})
+		})
+
+		Describe("when unable to put game", func() {
+			BeforeEach(func() {
+				s.store = &store.Mock{games: []*game.game{game.New()}, PutError: errors.New("unable to put game")}
+			})
+
+			It("should warn of put error", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to put game"))
+			})
+		})
+
+		Describe("when all is good", func() {
+			It("should return a game", func() {
+				g, err = testGetgame(resp)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(g).ToNot(BeNil())
+			})
+		})
+	})
+
+	Describe("updateStack", func() {
+		var act action
+
+		JustBeforeEach(func() {
+			s.updateStack("hid", act)(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		BeforeEach(func() {
+			act = func(g *game.game, c *gin.Context, cu *user.User) error { return nil }
+		})
+
+		Describe("when there is no header id", func() {
+
+			BeforeEach(func() {
+				c.Params = nil
+			})
+
+			It("should warn of missing header id", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get header id"))
+			})
+		})
+
+		Describe("when action errors", func() {
+			BeforeEach(func() {
+				act = func(g *game.game, c *gin.Context, cu *user.User) error {
+					return errors.New("error")
+				}
+			})
+
+			It("should warn of action error", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("error"))
+			})
+		})
+
+		Describe("when unable to put header", func() {
+			BeforeEach(func() {
+				s.store = &store.Mock{PutError: errors.New("unable to put header")}
+			})
+
+			It("should warn of put error", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to put header"))
+			})
+		})
+
+		Describe("when all is good", func() {
+			BeforeEach(func() {
+				s.store = &store.Mock{}
+			})
+
+			It("should return a game", func() {
+				g, err = testGetgame(resp)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(g).ToNot(BeNil())
+			})
+		})
+	})
+
+	Describe("show", func() {
+		BeforeEach(func() {
+			s.show()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(jerr).To(BeFalse())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+
+	Describe("placeThief", func() {
+		BeforeEach(func() {
+			s.placeThief()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+
+	Describe("playCard", func() {
+		BeforeEach(func() {
+			s.playCard()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+
+	Describe("selectThief", func() {
+		BeforeEach(func() {
+			s.selectThief()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+
+	Describe("moveThief", func() {
+		BeforeEach(func() {
+			s.moveThief()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+
+	Describe("pass", func() {
+		BeforeEach(func() {
+			s.pass()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+
+	Describe("reset", func() {
+		BeforeEach(func() {
+			s.reset()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+
+	Describe("redo", func() {
+		BeforeEach(func() {
+			s.redo()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+
+	Describe("undo", func() {
+		BeforeEach(func() {
+			s.undo()(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return a game", func() {
+			g, err = testGetgame(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(g).ToNot(BeNil())
+		})
+	})
+})

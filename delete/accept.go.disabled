@@ -1,0 +1,87 @@
+package main
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"bitbucket.org/SlothNinja/log"
+	"bitbucket.org/SlothNinja/status"
+	"bitbucket.org/SlothNinja/store"
+	"bitbucket.org/SlothNinja/user"
+	"cloud.google.com/go/datastore"
+	"github.com/gin-gonic/gin"
+)
+
+// Accept permits the current user to accept a game invitation.
+// Accept further starts the game if the number of joined users
+// equals the number of players specified in the invitation.
+func Accept(param, queue, path string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log.Debugf("Entering")
+		defer log.Debugf("Exiting")
+
+		hid, err := strconv.ParseInt(c.Param(param), 10, 64)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": "unable to get header id"})
+			return
+		}
+
+		client, err := store.New(c)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": "unable to get header store"})
+			return
+		}
+
+		invitation := newHeaderEntity(newGame(hid))
+
+		err = client.Get(c, invitation.Key, &invitation)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": "unable to get header"})
+			return
+		}
+
+		cu, found := user.Current(c)
+		if !found {
+			c.JSON(http.StatusOK, gin.H{"message": user.ErrNotFound.Error()})
+			return
+		}
+
+		invitation, start, err := invitation.Accept(c, cu)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": err.Error()})
+			return
+		}
+
+		if start {
+			invitation.Status = status.Starting
+
+			g := newGame(invitation.ID())
+			g.Header = invitation.Header
+			g = g.start()
+
+			_, err := client.RunInTransaction(c, func(tx *datastore.Transaction) error {
+				t := time.Now()
+				g.UpdatedAt, g.StartedAt = t, t
+				_, err := tx.PutMulti(g.withHistory())
+				return err
+			})
+			if err != nil {
+				log.Errorf(err.Error())
+				c.JSON(http.StatusOK, gin.H{"message": "Unexpected error.  Try again."})
+				return
+			}
+			sendTurnNotification(c, g.Header, g.CPUserIndices[0])
+			c.JSON(http.StatusOK, gin.H{"header": invitation, "message": cu.Name + " joined game " + invitation.Title})
+			return
+		}
+
+		_, err = client.Put(c, invitation.Key, &invitation)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": cu.Name + " joined game " + invitation.Title})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"header": invitation, "message": cu.Name + " joined game " + invitation.Title})
+	}
+}

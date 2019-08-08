@@ -1,0 +1,94 @@
+package controller-test
+
+import (
+	"net/http"
+	"net/http/httptest"
+
+	"bitbucket.org/SlothNinja/sn"
+	"bitbucket.org/SlothNinja/sn/user"
+	"github.com/gin-gonic/gin"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"go.chromium.org/gae/service/datastore"
+	"golang.org/x/net/context"
+)
+
+var _ = Describe("New invitaiton action", func() {
+	var (
+		c    *gin.Context
+		resp *httptest.ResponseRecorder
+		msg  string
+		ctx  context.Context
+		u1   user.User
+		jerr bool
+		err  error
+	)
+
+	BeforeEach(func() {
+		resp = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(resp)
+		ctx = sn.Context(c)
+
+		u1 = user.New(ctx)
+		u1.ID = user.ID("1")
+		u1.Name = "SlothNinja1"
+
+		err = datastore.Put(ctx, &u1)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	JustBeforeEach(func() {
+		newAction()(c)
+		msg, jerr, err = testGetMsg(resp)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	Describe("when there is no current user", func() {
+
+		BeforeEach(func() {
+			c.Request = httptest.NewRequest(http.MethodGet, gamePath+newPath, nil)
+		})
+
+		It("should warn of missing current user", func() {
+			Expect(msg).To(ContainSubstring("current user not found"))
+		})
+
+		It("should indicate jerr is true", func() {
+			Expect(jerr).To(BeTrue())
+		})
+
+		It("should return an OK status", func() {
+			Expect(resp.Result().StatusCode).To(Equal(http.StatusOK))
+		})
+	})
+
+	Describe("when there is a current user", func() {
+
+		BeforeEach(func() {
+			c.Request = httptest.NewRequest(http.MethodGet, gamePath+newPath, nil)
+			user.WithCurrent(c, u1)
+		})
+
+		It("should not warn of missing current user", func() {
+			Expect(msg).ToNot(ContainSubstring("current user not found"))
+		})
+
+		It("should return a header with default's", func() {
+			h, err := testGetHeader(resp)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(h).ToNot(BeNil())
+			Expect(h.Title).To(ContainSubstring(u1.Name + "`s Game"))
+			Expect(h.TwoThiefVariant).To(BeFalse())
+			Expect(h.NumPlayers).To(Equal(2))
+		})
+
+		It("should indicate jerr is false", func() {
+			Expect(jerr).To(BeFalse())
+		})
+
+		It("should return an OK status", func() {
+			Expect(resp.Result().StatusCode).To(Equal(http.StatusOK))
+		})
+
+	})
+})

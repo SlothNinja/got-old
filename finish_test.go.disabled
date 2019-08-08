@@ -1,0 +1,193 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+
+	"bitbucket.org/SlothNinja/got/game"
+	"bitbucket.org/SlothNinja/sn"
+	"bitbucket.org/SlothNinja/store"
+	"bitbucket.org/SlothNinja/user"
+	"github.com/gin-gonic/gin"
+	"go.chromium.org/gae/filter/featureBreaker"
+	"go.chromium.org/gae/service/taskqueue"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Controller", func() {
+	var (
+		g          *game.game
+		act        action
+		fb         featureBreaker.FeatureBreaker
+		h          *Header
+		c          *gin.Context
+		ctx        context.Context
+		s          *server
+		u1, u2, u3 *user.User
+		resp       *httptest.ResponseRecorder
+		msg        string
+		jerr       bool
+		tqt        taskqueue.Testable
+		err        error
+	)
+
+	BeforeEach(func() {
+		s = new(server)
+
+		resp = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(resp)
+		c.Request = httptest.NewRequest(http.MethodPost, gamePath+showPath+"/1", nil)
+		c.Params = gin.Params{gin.Param{Key: "hid", Value: "1"}}
+
+		u1 = new(user.User)
+		u1.ID = user.ID("1")
+		u1.Name = "SlothNinja1"
+
+		u2 = new(user.User)
+		u2.ID = user.ID("2")
+		u2.Name = "steve2"
+
+		u3 = new(user.User)
+		u3.ID = user.ID("3")
+		u3.Name = "george3"
+
+		g = game.New()
+		g.Header.ID = 1
+		s.store = &store.Mock{games: []*game.game{g}}
+
+		// Add taskqueue for ending games.
+		ctx, fb = featureBreaker.FilterTQ(sn.Context(c), errors.New("default error"))
+		sn.WithContext(c, ctx)
+		tqt = taskqueue.GetTestable(ctx)
+		tqt.CreateQueue("end")
+
+		user.WithCurrent(c, u1)
+	})
+
+	Describe("finish", func() {
+
+		BeforeEach(func() {
+			act = (*game.game).FinishTurn
+
+			h = NewHeader()
+			h.ID = 1
+			h.Title = "New game"
+			h.NumPlayers = 2
+
+			s.store = &store.Mock{Headers: []*Header{h}}
+		})
+
+		JustBeforeEach(func() {
+			s.finish(hidParam, endQueue, endPath, act)(c)
+			msg, jerr, err = testGetMsg(resp)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Describe("when `before` call errors", func() {
+
+			BeforeEach(func() {
+				s.store = &store.Mock{GetError: errors.New("unable to get game")}
+			})
+
+			It("should abort and return http error", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("unable to get game"))
+			})
+		})
+
+		Describe("when action fails", func() {
+
+			BeforeEach(func() {
+				act = func(g *game.game, c *gin.Context, cu *user.User) error {
+					return errors.New("action failed")
+				}
+			})
+
+			It("should return http error", func() {
+				Expect(jerr).To(BeTrue())
+				Expect(msg).To(ContainSubstring("action failed"))
+			})
+		})
+
+		Describe("when not game over", func() {
+
+			It("should return game", func() {
+				g, err = testGetgame(resp)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(g).ToNot(BeNil())
+			})
+
+			It("should not return error", func() {
+				Expect(jerr).To(BeFalse())
+			})
+
+			Describe("when unable to put game", func() {
+				BeforeEach(func() {
+					s.store = &store.Mock{
+						games:    []*game.game{game.New()},
+						PutError: errors.New("unable to put game"),
+					}
+				})
+
+				It("should return http error", func() {
+					Expect(jerr).To(BeTrue())
+					Expect(msg).To(ContainSubstring("unable to put game"))
+				})
+
+			})
+		})
+
+		Describe("when game over", func() {
+			BeforeEach(func() {
+				g.Phase = phaseGameOver
+			})
+
+			It("should not return error", func() {
+				Expect(msg).To(ContainSubstring("finished turn"))
+				Expect(jerr).To(BeFalse())
+			})
+
+			It("should add task to queue", func() {
+				qdata := tqt.GetScheduledTasks()
+				Expect(qdata[endQueue]).To(HaveLen(1))
+			})
+
+			Describe("when unable to put game", func() {
+				BeforeEach(func() {
+					s.store = &store.Mock{
+						games:    []*game.game{g},
+						PutError: errors.New("unable to put game"),
+					}
+				})
+
+				It("should return http error", func() {
+					Expect(jerr).To(BeTrue())
+					Expect(msg).To(ContainSubstring("unable to put game"))
+				})
+
+				It("should not add task to queue", func() {
+					qdata := tqt.GetScheduledTasks()
+					Expect(qdata[endQueue]).To(HaveLen(0))
+				})
+
+			})
+
+			Describe("when unable to queue", func() {
+
+				BeforeEach(func() {
+					fb.BreakFeatures(errors.New("unable to add task to queue"), "AddMulti")
+				})
+
+				It("should return http error", func() {
+					Expect(jerr).To(BeTrue())
+					Expect(msg).To(ContainSubstring("unable to add task to queue"))
+				})
+
+			})
+		})
+	})
+})

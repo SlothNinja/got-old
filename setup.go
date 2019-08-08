@@ -1,0 +1,21 @@
+package main
+
+import "bitbucket.org/SlothNinja/log"
+
+func (g game) setupPhase() game {
+	g.Phase = phaseSetup
+	g.OrderIndices = make([]int, g.NumPlayers)
+
+	g = g.addNewPlayers()
+	playerShuffle(g.players)
+	g.grid = newGrid(g.NumPlayers)
+
+	for i, p := range g.players {
+		g.OrderIndices[i] = p.ID
+	}
+
+	cp := g.players[len(g.players)-1]
+	g.CPUserIndices = []int{cp.ID}
+	log.Debugf("g.CPUserIndices: %#v", g.CPUserIndices)
+	return g
+}

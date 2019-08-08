@@ -1,0 +1,88 @@
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"time"
+
+	"bitbucket.org/SlothNinja/chat"
+	"bitbucket.org/SlothNinja/log"
+	"bitbucket.org/SlothNinja/status"
+	"bitbucket.org/SlothNinja/store"
+	"bitbucket.org/SlothNinja/user"
+	"cloud.google.com/go/datastore"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+)
+
+// Create provides handler for creating a game invitation.
+func create() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log.Debugf("Entering")
+		defer log.Debugf("Exiting")
+
+		type jH struct {
+			Title      string `json:"title" binding:"min=4,max=30"`
+			NumPlayers int    `json:"numPlayers" binding:"gte=2,lte=4"`
+			TwoThief   bool   `json:"twoThief"`
+			Password   string `json:"password"`
+		}
+
+		type jD struct {
+			Header jH `json:"header"`
+		}
+
+		jData := new(jD)
+
+		err := c.ShouldBindJSON(jData)
+		if err != nil {
+			jerr(c, err)
+			return
+		}
+
+		cu, found := user.Current(c)
+		if !found {
+			jerr(c, errUserNotFound)
+			return
+		}
+
+		t := time.Now()
+		invitation := newHeaderEntity(newGame(0))
+		invitation.Title = jData.Header.Title
+		invitation.TwoThiefVariant = jData.Header.TwoThief
+		invitation.NumPlayers = jData.Header.NumPlayers
+		invitation.Password = jData.Header.Password
+		invitation.Creator = cu
+		invitation = invitation.AddUser(cu)
+		invitation.Status = status.Recruiting
+		invitation.CreatedAt, invitation.UpdatedAt = t, t
+
+		client, err := store.New(c)
+		if err != nil {
+			jerr(c, err)
+			return
+		}
+
+		_, err = client.RunInTransaction(c, func(tx *datastore.Transaction) error {
+			_, err := tx.Put(invitation.Key, &invitation)
+			if err != nil {
+				return errors.Wrap(err, "unable to put header")
+			}
+
+			m := chat.NewMLog(c, invitation.ID())
+			m.CreatedAt, m.UpdatedAt = t, t
+			_, err = tx.Put(m.Key, m)
+			if err != nil {
+				return errors.Wrap(err, "unable to put chat")
+			}
+			return nil
+		})
+
+		if err != nil {
+			jerr(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%s created game %q", cu.Name, invitation.Title)})
+	}
+}

@@ -1,0 +1,228 @@
+package controller
+
+// func Finish() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		ctx := sn.Context(c)
+// 		log.Debugf(ctx, "Entering")
+// 		defer log.Debugf(ctx, "Exiting")
+//
+// 		var (
+// 			g     *game.Game
+// 			hid   int64
+// 			cu    user.User
+// 			s     user.Stats
+// 			ts    map[string]*template.Template
+// 			found bool
+// 			err   error
+// 		)
+//
+// 		ts = sn.TemplatesFrom(c)
+// 		if cu, found = user.Current(ctx); !found {
+// 			sn.Errorf(c, "current user not found.")
+// 			return
+// 		}
+//
+// 		if hid, err = header.GetHID(c); err != nil {
+// 			sn.Errorf(c, "Unable to load game.  Inform webmaster if error persists.")
+// 			return
+// 		}
+//
+// 		if g, err = game.Get(ctx, hid); err != nil {
+// 			sn.Errorf(c, "Unable to load game.  Inform webmaster if error persists.")
+// 			return
+// 		}
+//
+// 		if !cu.IsAdmin {
+// 			if s, err = user.StatsFor(ctx, cu); err != nil {
+// 				sn.Errorf(c, "Unable to load player game.  Inform webmaster if error persists.")
+// 				return
+// 			}
+// 		}
+//
+// 		switch g.Phase {
+// 		case PlaceThieves:
+// 			if err = g.PlaceThievesFinishTurn(c, cu, s); err != nil {
+// 				sn.Errorf(c, err.Error())
+// 				return
+// 			}
+// 		case ClaimItem:
+// 			if err = g.MoveThiefFinishTurn(c, ts, cu, s); err != nil {
+// 				sn.Errorf(c, err.Error())
+// 				return
+// 			}
+// 		}
+//
+// 		c.JSON(http.StatusOK, struct {
+// 			Game *game.Game `json:"game"`
+// 			CU   user.User  `json:"cu"`
+// 		}{g, cu})
+// 	}
+// }
+
+// func (g *Game) validateFinishTurn(ctx context.Context, u user.User) (cp *player.Player, err error) {
+// 	log.Debugf(ctx, "Entering")
+// 	defer log.Debugf(ctx, "Exiting")
+//
+// 	var found bool
+// 	switch cp, found = g.currentPlayerFor(u); {
+// 	case !found:
+// 		err = errors.Wrap(errValidation, "current player not found")
+// 	case !g.CPorAdmin(cp.ID, u):
+// 		err = errors.Wrap(errValidation, "only the current player can perform the selected action")
+// 	case !cp.PerformedAction:
+// 		err = errors.Wrap(errValidation, "you have yet to perform an action")
+// 	}
+// 	return
+// }
+//
+// func (g *Game) nextPlayer(cp player.Player) (np *player.Player, found bool) {
+// 	var index int
+// 	if index, found = g.Players.FindIndex(cp); !found {
+// 		return
+// 	}
+// 	np = g.Players.ByIndex(index + 1)
+// 	return
+// }
+//
+// func (g *Game) previousPlayer(cp player.Player) (np *player.Player, err error) {
+// 	if index, found := g.Players.FindIndex(cp); found {
+// 		np = g.Players.ByIndex(index - 1)
+// 		return
+// 	}
+// 	err = errors.New("player not found")
+// 	return
+// }
+//
+// func (g *Game) placeThievesFinishTurn(c *gin.Context, u user.User, s user.Stats) (err error) {
+// 	ctx := sn.Context(c)
+// 	log.Debugf(ctx, "Entering")
+// 	defer log.Debugf(ctx, "Exiting")
+//
+// 	var (
+// 		numThieves int = 3
+// 		cp, np     *player.Player
+// 	)
+//
+// 	if cp, err = g.validatePlaceThievesFinishTurn(c, u); err != nil {
+// 		return
+// 	}
+//
+// 	if g.TwoThiefVariant {
+// 		numThieves = 2
+// 	}
+//
+// 	if cp.Equal(g.Players[0]) && g.Turn == numThieves {
+// 		return g.startCardPlay(c, u, s)
+// 	}
+//
+// 	if np, err = g.previousPlayer(*cp); err != nil {
+// 		return
+// 	}
+//
+// 	if np.Equal(g.Players[len(g.Players)-1]) {
+// 		g.Turn++
+// 	}
+// 	g.CPUserIndices = []int{np.ID}
+// 	np.BeginningOfTurnReset()
+//
+// 	g.updateClickable(u, np)
+//
+// 	g.Animations = nil
+//
+// 	// Ignore but log any turn notification error.
+// 	if err = SendTurnNotification(ctx, g.Header, np.ID); err != nil {
+// 		log.Warningf(ctx, err.Error())
+// 	}
+// 	return g.Commit(ctx, u, s)
+// }
+//
+// func (g *Game) validatePlaceThievesFinishTurn(c *gin.Context, u user.User) (cp *player.Player, err error) {
+// 	ctx := sn.Context(c)
+// 	log.Debugf(ctx, "Entering")
+// 	defer log.Debugf(ctx, "Exiting")
+//
+// 	if cp, err = g.validateFinishTurn(c, u); err == nil && g.Phase != PlaceThieves {
+// 		err = errors.Wrap(errValidation, "wrong phase for selected action")
+// 	}
+// 	return
+// }
+//
+// func (g *Game) moveThiefNextPlayer(p player.Player) (np *player.Player, found bool) {
+// 	for !g.Players.AllPassed() {
+// 		np, found = g.nextPlayer(p)
+// 		if !found || !np.Passed {
+// 			return
+// 		}
+// 		p = *np
+// 	}
+// 	return
+// }
+//
+// func (g *Game) moveThiefFinishTurn(c *gin.Context, ts map[string]*template.Template, u user.User, s user.Stats) (err error) {
+// 	ctx := sn.Context(c)
+// 	log.Debugf(ctx, "Entering")
+// 	defer log.Debugf(ctx, "Exiting")
+//
+// 	var (
+// 		np, cp *player.Player
+// 		found  bool
+// 	)
+//
+// 	if cp, err = g.validateMoveThiefFinishTurn(ctx, u); err != nil {
+// 		return
+// 	}
+//
+// 	g.endOfTurnUpdateFor(cp)
+// 	np, found = g.moveThiefNextPlayer(*cp)
+//
+// 	// If no next player, end game
+// 	if !found {
+// 		var rs Results
+//
+// 		if rs, err = g.endGame(ctx, ts); err != nil {
+// 			return
+// 		}
+//
+// 		if err = g.Commit(ctx, u, s); err != nil {
+// 			return
+// 		}
+//
+// 		// Log but, otherwise ignore error.  Game will finish even if unable to mail end game results.
+// 		if err = SendEndGameNotifications(ctx, g.Header, rs); err != nil {
+// 			log.Warningf(ctx, err.Error())
+// 			err = nil
+// 		}
+//
+// 		return
+// 	}
+//
+// 	// If game did not end, select next player and continue moving theives.
+// 	np.BeginningOfTurnReset()
+//
+// 	g.CPUserIndices = []int{np.ID}
+// 	if np.ID == g.Players[0].ID {
+// 		g.Turn++
+// 	}
+// 	g.Phase = PlayCard
+// 	g.updateClickable(u, np)
+// 	g.Animations = nil
+//
+// 	if cp.ID != np.ID {
+// 		if err = SendTurnNotification(ctx, g.Header, np.ID); err != nil {
+// 			log.Warningf(ctx, err.Error())
+// 		}
+// 	}
+//
+// 	err = g.Commit(ctx, u, s)
+// 	return
+// }
+//
+// func (g *Game) validateMoveThiefFinishTurn(ctx context.Context, u user.User) (cp *player.Player, err error) {
+// 	log.Debugf(ctx, "Entering")
+// 	defer log.Debugf(ctx, "Exiting")
+//
+// 	if cp, err = g.validateFinishTurn(ctx, u); err == nil && g.Phase != ClaimItem {
+// 		err = errors.Wrap(errValidation, "wrong phase for selected action")
+// 	}
+// 	return
+// }

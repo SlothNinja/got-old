@@ -1,0 +1,160 @@
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+)
+
+const (
+	// hidParam    = "hid"
+	// countParam  = "count"
+	// offsetParam = "offset"
+	// statusParam = "status"
+	// uidParam    = "uid"
+	// startQueue  = "start"
+
+	// devRoot         = "localhost:8081"
+	// prodRoot        = "got.slothninja.com"
+	// gamePath        = "game"
+	// gamesPath       = gamePath + "s"
+	newPath    = gamePath + "/new"
+	createPath = newPath
+	// showPath        = gamePath + "/show"
+	startPath = gamePath + "/start"
+	adminPath = gamePath + "/admin"
+	// undoPath        = gamePath + "/undo"
+	// resetPath       = gamePath + "/reset"
+	// finishPath      = gamePath + "/finish"
+	// redoPath        = gamePath + "/redo"
+	dropPath   = gamePath + "/drop"
+	acceptPath = gamePath + "/accept"
+	// placeThiefPath  = gamePath + "/place-thief"
+	// playCardPath    = gamePath + "/play-card"
+	// selectThiefPath = gamePath + "/select-thief"
+	// moveThiefPath   = gamePath + "/move-thief"
+	// passPath       = gamePath + "/pass"
+	// addMessagePath = gamePath + "/add-message"
+	// messagesPath = gamePath + "/messages"
+	// glogPath     = gamePath + "/glog"
+)
+
+func AddRoutes(engine *gin.Engine) {
+	g1 := engine.Group("")
+
+	// New
+	g1.GET(newPath,
+		New(),
+	)
+
+	// Create
+	g1.PUT(createPath,
+		Create(),
+	)
+
+	// Show
+	// g1.GET(showPath+"/:"+hidParam,
+	// 	Show(),
+	// )
+
+	// Admin
+	// g1.GET(adminPath+"/:"+hidParam,
+	// 	admin(),
+	// )
+
+	// Undo
+	// g1.PUT(undoPath+"/:"+hidParam,
+	// 	Undo(),
+	// )
+
+	// // Redo
+	// g1.PUT(redoPath+"/:"+hidParam,
+	// 	Redo(),
+	// )
+
+	// // Reset
+	// g1.PUT(resetPath+"/:"+hidParam,
+	// 	Reset(),
+	// )
+
+	// // Finish
+	// g1.PUT(finishPath+"/:"+hidParam,
+	// 	Finish(),
+	// )
+
+	// Drop
+	g1.PUT(dropPath+"/:"+hidParam,
+		Drop(hidParam),
+	)
+
+	// Accept
+	g1.PUT(acceptPath+"/:"+hidParam,
+		Accept(hidParam, startQueue, startPath),
+	)
+
+	// // Place Thief
+	// g1.PUT(placeThiefPath+"/:"+hidParam,
+	// 	PlaceThief(),
+	// )
+
+	// // Play Card
+	// g1.PUT(playCardPath+"/:"+hidParam,
+	// 	PlayCard(),
+	// )
+
+	// // Select Thief
+	// g1.PUT(selectThiefPath+"/:"+hidParam,
+	// 	SelectThief(),
+	// )
+
+	// // Move Thief
+	// g1.PUT(moveThiefPath+"/:"+hidParam,
+	// 	MoveThief(),
+	// )
+
+	// // Pass
+	// g1.PUT(passPath+"/:"+hidParam,
+	// 	Pass(),
+	// )
+
+	// Admin Update
+	// g1.POST(adminPath+"/:"+hidParam,
+	// 	adminPost(),
+	// )
+
+	// g1.PUT(adminPath+"/:"+hidParam,
+	// 	adminUpdate(),
+	// )
+
+	// Index
+	g1.GET(gamesPath+"/:"+statusParam,
+		jsonIndexAction(),
+	)
+
+	//g1.GET(gamesPath+"/:"+statusParam+"/user/:"+uidParam,
+	//	Index(),
+	//)
+
+	// JSON Data for Index
+	g1.POST(gamesPath+"/:"+statusParam+"/json",
+		jsonIndexAction(),
+	)
+
+	// JSON Data for Index
+	g1.POST(gamesPath+"/:"+statusParam+"/user/:"+uidParam+"/json",
+		jsonIndexAction(),
+	)
+
+	// // Add Message
+	// g1.PUT(addMessagePath+"/:"+hidParam,
+	// 	chat.AddMLogMessage(),
+	// )
+
+	// // Get Messages
+	// g1.GET(messagesPath+"/:"+hidParam+"/:"+offsetParam,
+	// 	chat.GetMLog(hidParam, offsetParam),
+	// )
+
+	// // Get Game Log
+	// g1.GET(glogPath+"/:"+hidParam+"/:"+countParam+"/:"+offsetParam,
+	// 	glog.GetGLog(hidParam, countParam, offsetParam),
+	// )
+}

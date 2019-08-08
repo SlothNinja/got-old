@@ -1,0 +1,206 @@
+package controller
+
+import (
+	"net/http"
+
+	"bitbucket.org/SlothNinja/got/game"
+	"bitbucket.org/SlothNinja/sn/log"
+	"bitbucket.org/SlothNinja/sn"
+	"bitbucket.org/SlothNinja/sn/user"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	"go.chromium.org/gae/service/datastore"
+)
+
+type action func(*game.Game, *gin.Context, user.User) error
+
+func Show() gin.HandlerFunc        { return get((*game.Game).Show) }
+func PlaceThief() gin.HandlerFunc  { return save((*game.Game).PlaceThief) }
+func PlayCard() gin.HandlerFunc    { return save((*game.Game).PlayCard) }
+func SelectThief() gin.HandlerFunc { return save((*game.Game).SelectThief) }
+func MoveThief() gin.HandlerFunc   { return save((*game.Game).MoveThief) }
+func Pass() gin.HandlerFunc        { return save((*game.Game).Pass) }
+func Reset() gin.HandlerFunc       { return updateStack((*game.Game).Reset) }
+func Undo() gin.HandlerFunc        { return updateStack((*game.Game).Undo) }
+func Redo() gin.HandlerFunc        { return updateStack((*game.Game).Redo) }
+
+func save(act action) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var (
+			g   *game.Game
+			cu  user.User
+			err error
+		)
+
+		if g, cu, err = before(c, act); err != nil {
+			sn.Error(c, err)
+			return
+		}
+
+		if err = g.Save(sn.Context(c)); err != nil {
+			sn.Error(c, err)
+			return
+		}
+
+		after(c, g, cu)
+
+	}
+}
+
+func get(act action) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var (
+			g   *game.Game
+			cu  user.User
+			err error
+		)
+
+		if g, cu, err = before(c, act); err != nil {
+			sn.Error(c, err)
+			return
+		}
+
+		after(c, g, cu)
+	}
+}
+
+func commit(act action) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var (
+			g   *game.Game
+			cu  user.User
+			err error
+		)
+
+		if g, cu, err = before(c, act); err != nil {
+			sn.Error(c, err)
+			return
+		}
+
+		after(c, g, cu)
+	}
+}
+
+func updateStack(act action) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var (
+			g   *game.Game
+			err error
+		)
+
+		if g, _, err = before(c, act); err != nil {
+			sn.Error(c, err)
+			return
+		}
+
+		if err = datastore.Put(sn.Context(c), g.Header); err != nil {
+			sn.Error(c, err)
+			return
+		}
+
+		Show()(c)
+	}
+}
+
+func before(c *gin.Context, act action) (g *game.Game, cu user.User, err error) {
+	ctx := sn.Context(c)
+	log.Debugf(ctx, "Entering")
+	defer log.Debugf(ctx, "Exiting")
+
+	var (
+		hid   int64
+		found bool
+	)
+
+	if hid, err = header.GetHID(c); err != nil {
+		sn.Error(c, err)
+		return
+	}
+
+	if g, err = game.Get(ctx, hid); err != nil {
+		sn.Error(c, errors.WithMessage(err, "unable to get game"))
+		return
+	}
+
+	if cu, found = user.Current(ctx); !found {
+		sn.Error(c, errors.WithMessage(user.ErrNotFound, "current user not found"))
+		return
+	}
+
+	if err = act(g, c, cu); err != nil {
+		sn.Error(c, err)
+		return
+	}
+
+	return
+}
+
+func after(c *gin.Context, g *game.Game, cu user.User) {
+	c.JSON(http.StatusOK, struct {
+		Game        *game.Game `json:"game"`
+		CurrentUser user.User  `json:"cu"`
+		Message     string     `json:"message"`
+		Error       bool       `json:"error"`
+	}{
+		Game:        g,
+		CurrentUser: cu,
+		Message:     "",
+		Error:       false,
+	})
+}
+
+func hBefore(c *gin.Context, act hAction) (h *header.Header, cu user.User, err error) {
+	ctx := sn.Context(c)
+	log.Debugf(ctx, "Entering")
+	defer log.Debugf(ctx, "Exiting")
+
+	var (
+		hid   int64
+		found bool
+		err   error
+	)
+
+	if hid, err = header.GetHID(c); err != nil {
+		sn.Error(c, err)
+		return
+	}
+
+	if h, err = header.Get(ctx, hid); err != nil {
+		sn.Error(c, err)
+		return
+	}
+
+	if cu, found = user.Current(ctx); !found {
+		sn.Error(c, errors.WithMessage(user.ErrNotFound, "current user not found"))
+		return
+	}
+
+	return
+}
+
+//		if err = h.Drop(cu); err != nil {
+//			sn.Error(c, err)
+//			return
+//		}
+//
+//		if len(h.Users) == 0 {
+//			h.Status = status.Aborted
+//		}
+//
+//		if err = datastore.Put(ctx, h); err != nil {
+//			sn.Error(c, errors.WithMessage(err, "unable to save invitation"))
+//			return
+//		}
+//
+//		c.JSON(http.StatusOK, struct {
+//			Header  *header.Header `json:"header"`
+//			Message string         `json:"message"`
+//			Error   bool           `json:"error"`
+//		}{
+//			Header:  h,
+//			Message: cu.Name + " left invitation for game \"" + h.Title + "\"",
+//			Error:   false,
+//		})
+//	}
+//}

@@ -1,0 +1,97 @@
+package main
+
+import "encoding/json"
+
+// const (
+// 	kind = "state"
+// )
+//
+// // state stores the game state.
+// type state struct {
+// 	Key       *datastore.Key
+// 	CreatedAt time.Time `json:"-"`
+// 	UpdatedAt time.Time `json:"-"`
+// 	Encoded   string    `datastore:",noindex" json:"-"`
+// 	Data      `datastore:"-"`
+// }
+//
+// // New returns a new game state.
+// func New(id int64, pk *datastore.Key) *state {
+// 	return &state{Key: newKey(id, pk)}
+// }
+//
+// func newKey(id int64, pk *datastore.Key) *datastore.Key {
+// 	return datastore.IDKey(kind, id, pk)
+// }
+
+// State provides game state data
+type state struct {
+	players        []player
+	grid           grid
+	jewels         card
+	stepped        int
+	playedCard     card
+	selectedAreaID areaID
+}
+
+type jState struct {
+	Players        []player `json:"players"`
+	Grid           grid     `json:"grid"`
+	Jewels         card     `json:"jewels"`
+	Stepped        int      `json:"stepped"`
+	PlayedCard     card     `json:"playedCard"`
+	SelectedAreaID areaID   `json:"selectedAreaID"`
+}
+
+func (s state) MarshalJSON() ([]byte, error) {
+	j := jState{
+		Players:        s.players,
+		Grid:           s.grid,
+		Jewels:         s.jewels,
+		Stepped:        s.stepped,
+		PlayedCard:     s.playedCard,
+		SelectedAreaID: s.selectedAreaID,
+	}
+	return json.Marshal(j)
+}
+
+func (s *state) UnmarshalJSON(bs []byte) error {
+	var j jState
+	err := json.Unmarshal(bs, &j)
+	if err != nil {
+		return err
+	}
+	s.players, s.grid, s.jewels, s.stepped, s.playedCard, s.selectedAreaID =
+		j.Players, j.Grid, j.Jewels, j.Stepped, j.PlayedCard, j.SelectedAreaID
+	return nil
+}
+
+// func (s *state) Load(ps []datastore.Property) error {
+// 	err := datastore.LoadStruct(s, ps)
+// 	if err != nil {
+// 		return err
+// 	}
+//
+// 	var d Data
+// 	err = json.Unmarshal([]byte(s.Encoded), &d)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	s.Data = d
+// 	return nil
+// }
+//
+// func (s *state) Save() ([]datastore.Property, error) {
+// 	encoded, err := json.Marshal(s.Data)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	s.Encoded = string(encoded)
+// 	return datastore.SaveStruct(s)
+// }
+//
+// func (s *state) LoadKey(k *datastore.Key) error {
+// 	s.Key = k
+// 	return nil
+// }

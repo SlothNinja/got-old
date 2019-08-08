@@ -1,0 +1,70 @@
+package main
+
+import (
+	"net/http"
+
+	"bitbucket.org/SlothNinja/sn/log"
+	"bitbucket.org/SlothNinja/sn"
+	"bitbucket.org/SlothNinja/sn/status"
+	"bitbucket.org/SlothNinja/sn/user"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+
+	"go.chromium.org/gae/service/datastore"
+)
+
+func drop() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := sn.Context(c)
+		log.Debugf(ctx, "Entering")
+		defer log.Debugf(ctx, "Exiting")
+
+		var (
+			h     *header.Header
+			hid   int64
+			cu    user.User
+			found bool
+			err   error
+		)
+
+		if hid, err = header.GetHID(c); err != nil {
+			jsonError(c, err)
+			return
+		}
+
+		if h, err = header.Get(ctx, hid); err != nil {
+			jsonError(c, err)
+			return
+		}
+
+		if cu, found = user.Current(c); !found {
+			jsonError(c, errUserNotFound)
+			return
+		}
+
+		if err = h.Drop(cu); err != nil {
+			jsonError(c, err)
+			return
+		}
+
+		if len(h.Users) == 0 {
+			h.Status = status.Aborted
+		}
+
+		if err = datastore.Put(ctx, h); err != nil {
+			jsonError(c, errors.WithMessage(err, "unable to save invitation"))
+			return
+		}
+
+		c.JSON(http.StatusOK, struct {
+			Header  *header.Header `json:"header"`
+			Message string         `json:"message"`
+			Error   bool           `json:"error"`
+		}{
+			Header:  h,
+			Message: cu.Name + " left invitation for game \"" + h.Title + "\"",
+			Error:   false,
+		})
+	}
+}

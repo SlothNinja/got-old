@@ -1,0 +1,12 @@
+package main
+
+// Facing is used to indicate whether card is facing up or down.
+type Facing int
+
+const (
+	// FaceDown indicates card is facing down
+	// FaceDown is also the Zero value for Facing.
+	FaceDown Facing = iota
+	// FaceUp indicates a card is face up.
+	FaceUp
+)

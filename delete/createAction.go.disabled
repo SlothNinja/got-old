@@ -1,0 +1,80 @@
+package main
+
+import (
+	"net/http"
+
+	"bitbucket.org/SlothNinja/chat"
+	"bitbucket.org/SlothNinja/log"
+	"bitbucket.org/SlothNinja/status"
+	"bitbucket.org/SlothNinja/store"
+	"bitbucket.org/SlothNinja/user"
+	"cloud.google.com/go/datastore"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+)
+
+func create() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		log.Debugf("Entering")
+		defer log.Debugf("Exiting")
+
+		h := newHeaderEntity(newGame(0))
+
+		jData := struct {
+			Title      string `json:"title" binding:"min=4,max=30"`
+			NumPlayers int    `json:"numPlayers" binding:"gte=2,lte=4"`
+			TwoThief   bool   `json:"twoThief"`
+			Password   string `json:"password"`
+		}{}
+
+		err := c.ShouldBindJSON(&jData)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": errUnexpected.Error()})
+			return
+		}
+
+		cu, found := user.Current(c)
+		if !found {
+			log.Errorf("unable to find current user")
+			c.JSON(http.StatusOK, gin.H{"message": "unable to find current user"})
+			return
+		}
+
+		h.Title = jData.Title
+		h.TwoThiefVariant = jData.TwoThief
+		h.NumPlayers = jData.NumPlayers
+		h.Password = jData.Password
+		h.Creator = cu
+		h.AddUser(cu)
+		h.Status = status.Recruiting
+
+		client, err := store.New(c)
+		if err != nil {
+			log.Errorf(err.Error())
+			c.JSON(http.StatusOK, gin.H{"message": errUnexpected.Error()})
+			return
+		}
+
+		_, err = client.RunInTransaction(c, func(tx *datastore.Transaction) error {
+			_, err := tx.Put(h.Key, h)
+			if err != nil {
+				return errors.WithMessage(err, "unable to put header")
+			}
+
+			m := chat.NewMLog(c, h.ID())
+			_, err = tx.Put(m.Key, m)
+			if err != nil {
+				return errors.WithMessage(err, "unable to put chat")
+			}
+			return nil
+		})
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"message": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": ""})
+	}
+}
