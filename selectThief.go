@@ -38,7 +38,7 @@ func (g game) SelectThief(c *gin.Context) (game, error) {
 
 	g.Log = append(g.Log, logEntry{
 		"template": selectThiefID,
-		"pid":      cp.ID,
+		"pid":      cp.id,
 		"phase":    g.Phase,
 		"turn":     g.Turn,
 		"area":     a,
@@ -64,7 +64,7 @@ func (g game) validateSelectThief(c *gin.Context) (player, area, error) {
 	switch {
 	case err != nil:
 		return player{}, area{}, err
-	case (a.thief.pid != cp.ID):
+	case (a.thief.pid != cp.id):
 		return player{}, area{}, errors.WithMessage(errValidation, "selected area does not have one of your thieves")
 	default:
 		return cp, a, nil

@@ -5,7 +5,6 @@ import (
 
 	"bitbucket.org/SlothNinja/log"
 	"bitbucket.org/SlothNinja/status"
-	"bitbucket.org/SlothNinja/store"
 	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
 	"github.com/gin-gonic/gin"
@@ -38,52 +37,37 @@ import (
 // 	}
 // }
 
-func jsonIndexAction() gin.HandlerFunc {
+func (s server) jsonIndexAction() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		s := status.StatusFromParam(c)
+		stat := status.StatusFromParam(c)
 		q := datastore.
 			NewQuery("Header").
-			Filter("Status=", int(s)).
+			Filter("Status=", int(stat)).
 			Order("-UpdatedAt")
 
-		client, err := store.New(c)
+		s, err := s.init(c)
 		if err != nil {
-			log.Errorf(err.Error())
-			c.JSON(http.StatusOK, gin.H{"message": errUnexpected.Error()})
+			jerr(c, err)
 			return
 		}
 
 		var es []headerEntity
-		ks, err := client.GetAll(c, q, &es)
+		_, err = s.GetAll(c, q, &es)
 		if err != nil {
-			log.Errorf(err.Error())
-			c.JSON(http.StatusOK, gin.H{"message": errUnexpected.Error()})
+			jerr(c, err)
 			return
-		}
-		for i := range ks {
-			log.Debugf("ks[%d]: %#v", i, ks[i])
-		}
-		for i := range es {
-			log.Debugf("es[%d]: %#v", i, es[i])
 		}
 
-		// hs = make([]Header, len(ks))
 		cu, found := user.Current(c)
 		if !found {
-			log.Errorf("unable to find current user")
-			c.JSON(http.StatusOK, gin.H{"message": "unable to find current user"})
+			jerr(c, errUserNotFound)
 			return
 		}
-		// err = client.GetMulti(c, ks, hs)
-		if err == nil {
-			c.JSON(http.StatusOK, gin.H{"headers": es, "cu": cu})
-			return
-		}
-		c.JSON(http.StatusBadRequest, struct {
-			Error string
-		}{err.Error()})
+
+		c.JSON(http.StatusOK, gin.H{"headers": es, "cu": cu})
+		return
 	}
 }

@@ -11,11 +11,11 @@ func (g game) setupPhase() game {
 	g.grid = newGrid(g.NumPlayers)
 
 	for i, p := range g.players {
-		g.OrderIndices[i] = p.ID
+		g.OrderIndices[i] = p.id
 	}
 
 	cp := g.players[len(g.players)-1]
-	g.CPUserIndices = []int{cp.ID}
+	g.CPUserIndices = []int{cp.id}
 	log.Debugf("g.CPUserIndices: %#v", g.CPUserIndices)
 	return g
 }

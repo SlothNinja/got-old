@@ -195,7 +195,7 @@ func newUserAction(prefix string) gin.HandlerFunc {
 		cu, found := user.Current(c)
 		if !found {
 			log.Errorf("unable to find current user")
-			c.JSON(http.StatusOK, gin.H{"message": "unable to find current user"})
+			c.JSON(http.StatusOK, gin.H{"dev": isDev(), "message": "unable to find current user"})
 			return
 		}
 
@@ -219,11 +219,7 @@ func newUserAction(prefix string) gin.HandlerFunc {
 		u.EmailReminders = true
 		u.EmailNotifications = true
 		u.GravType = user.GTMonster
-		c.JSON(http.StatusOK, struct {
-			U user.User2 `json:"u"`
-		}{
-			U: u,
-		})
+		c.JSON(http.StatusOK, gin.H{"u": u})
 	}
 }
 
@@ -234,10 +230,10 @@ func current(prefix string) gin.HandlerFunc {
 
 		cu, found := user.Current(c)
 		if !found {
-			c.JSON(http.StatusOK, gin.H{"message": "unable to find current user"})
+			c.JSON(http.StatusOK, gin.H{"dev": isDev(), "message": "unable to find current user"})
 		}
 
-		c.JSON(http.StatusOK, gin.H{"cu": cu})
+		c.JSON(http.StatusOK, gin.H{"dev": isDev(), "cu": cu})
 	}
 }
 
@@ -254,11 +250,7 @@ func jsonUser(prefix string) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, struct {
-			U user.User2 `json:"u"`
-		}{
-			U: u,
-		})
+		c.JSON(http.StatusOK, gin.H{"u": u})
 	}
 }
 
@@ -365,9 +357,7 @@ func createUser(prefix string) gin.HandlerFunc {
 			log.Errorf("session.Save error: %v", err)
 		}
 
-		c.JSON(http.StatusOK, struct {
-			U user.User2 `json:"u"`
-		}{U: u})
+		c.JSON(http.StatusOK, gin.H{"u": u})
 	}
 }
 
@@ -549,20 +539,12 @@ func update(prefix string) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, struct {
-			CU user.User2 `json:"cu"`
-		}{
-			CU: u2,
-		})
+		c.JSON(http.StatusOK, gin.H{"cu": u2})
 	}
 }
 
 func jsonMsg(c *gin.Context, format string, args ...interface{}) {
-	c.JSON(http.StatusOK, struct {
-		Msg string `json:"msg"`
-	}{
-		Msg: fmt.Sprintf(format, args...),
-	})
+	c.JSON(http.StatusOK, gin.H{"dev": isDev(), "msg": fmt.Sprintf(format, args...)})
 }
 
 func uniqueName(c *gin.Context, u1 user.User2) (bool, error) {

@@ -13,7 +13,11 @@ import (
 	"cloud.google.com/go/datastore"
 )
 
-const kind = "Game"
+const (
+	kind     = "Game"
+	msgExit  = "Exiting"
+	msgEnter = "Entering"
+)
 
 type game struct {
 	Key        *datastore.Key `datastore:"-"`
@@ -254,18 +258,18 @@ func (g game) addNewPlayer(pid int) game {
 
 func (g game) createPlayer(pid int) player {
 	p := newPlayer()
-	p.ID = pid
-	p.User = g.Users[pid-1]
+	p.id = pid
+	p.user = g.Users[pid-1]
 
-	p.SetColorMap(make([]color.Color, g.NumPlayers))
+	p.colors = make([]color.Color, g.NumPlayers)
 
 	for i := 0; i < g.NumPlayers; i++ {
-		index := (i - p.ID) % g.NumPlayers
+		index := (i - p.id) % g.NumPlayers
 		if index < 0 {
 			index += g.NumPlayers
 		}
 		color := defaultColors[index]
-		p.ColorMap()[i] = color
+		p.colors[i] = color
 	}
 
 	return p
@@ -274,7 +278,7 @@ func (g game) createPlayer(pid int) player {
 func (g game) beginningOfPhaseReset() game {
 	for i, p := range g.players {
 		p = p.clearActions()
-		p.Passed = false
+		p.passed = false
 		g.players[i] = p
 	}
 	return g
@@ -282,14 +286,14 @@ func (g game) beginningOfPhaseReset() game {
 
 func (g game) beginningOfTurnReset(p player) game {
 	p = p.clearActions()
-	p.Passed = false
+	p.passed = false
 	return g.updatePlayer(p)
 }
 
 func (g game) endOfTurnUpdateFor(p player) game {
 	g = g.updateJewels()
 	g.stepped = 0
-	p.Hand = turn(cdFaceUp, p.Hand)
+	p.hand = turn(cdFaceUp, p.hand)
 	return g.updatePlayer(p)
 }
 

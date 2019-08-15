@@ -123,14 +123,14 @@ func (s server) createInvitation() gin.HandlerFunc {
 		_, err = s.RunInTransaction(c, func(tx *datastore.Transaction) error {
 			_, err := tx.Put(invitation.Key, &invitation)
 			if err != nil {
-				return errors.Wrap(err, "unable to put header")
+				return errors.WithMessage(err, "unable to put header")
 			}
 
 			m := chat.NewMLog(c, invitation.ID())
 			m.CreatedAt, m.UpdatedAt = t, t
 			_, err = tx.Put(m.Key, m)
 			if err != nil {
-				return errors.Wrap(err, "unable to put chat")
+				return errors.WithMessage(err, "unable to put chat")
 			}
 			return nil
 		})
@@ -157,7 +157,7 @@ func (s server) acceptInvitation(param string) gin.HandlerFunc {
 
 		hid, err := strconv.ParseInt(c.Param(param), 10, 64)
 		if err != nil {
-			jerr(c, errors.Wrap(err, "unable to get header id"))
+			jerr(c, errors.WithMessage(err, "unable to get header id"))
 			return
 		}
 
@@ -171,7 +171,7 @@ func (s server) acceptInvitation(param string) gin.HandlerFunc {
 
 		err = s.Get(c, invitation.Key, &invitation)
 		if err != nil {
-			jerr(c, errors.Wrap(err, "unable to get header"))
+			jerr(c, errors.WithMessage(err, "unable to get header"))
 			return
 		}
 
@@ -201,7 +201,10 @@ func (s server) acceptInvitation(param string) gin.HandlerFunc {
 			}
 
 			sendTurnNotification(c, g.Header, g.CPUserIndices[0])
-			c.JSON(http.StatusOK, gin.H{"header": invitation, "message": cu.Name + " joined game " + invitation.Title})
+			c.JSON(http.StatusOK, gin.H{
+				"header":  invitation,
+				"message": cu.Name + " joined game " + invitation.Title,
+			})
 			return
 		}
 
@@ -211,7 +214,10 @@ func (s server) acceptInvitation(param string) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"header": invitation, "message": cu.Name + " joined game " + invitation.Title})
+		c.JSON(http.StatusOK, gin.H{
+			"header":  invitation,
+			"message": cu.Name + " joined game " + invitation.Title,
+		})
 	}
 }
 
@@ -234,7 +240,7 @@ func (s server) dropInvitation(param string) gin.HandlerFunc {
 
 		hid, err := strconv.ParseInt(c.Param(param), 10, 64)
 		if err != nil {
-			jerr(c, errors.Wrap(err, "unable to get header id"))
+			jerr(c, errors.WithMessage(err, "unable to get header id"))
 			return
 		}
 
@@ -269,20 +275,12 @@ func (s server) dropInvitation(param string) gin.HandlerFunc {
 	}
 }
 
-func (s server) placeThief() gin.HandlerFunc {
-	return s.update(param, (game).PlaceThief)
-}
-
 func (s server) playCard() gin.HandlerFunc {
 	return s.update(param, (game).PlayCard)
 }
 
 func (s server) selectThief() gin.HandlerFunc {
 	return s.update(param, (game).SelectThief)
-}
-
-func (s server) moveThief() gin.HandlerFunc {
-	return s.update(param, (game).MoveThief)
 }
 
 func (s server) pass() gin.HandlerFunc {
@@ -341,11 +339,15 @@ func (s server) update(param string, act action) gin.HandlerFunc {
 }
 
 func (s server) init(c *gin.Context) (server, error) {
-	client, err := store.New(c)
+	if s.Store != nil {
+		return s, nil
+	}
+
+	var err error
+	s.Store, err = datastore.NewClient(c, "")
 	if err != nil {
 		return server{}, err
 	}
-	s.Store = client
 	return s, nil
 }
 
@@ -408,8 +410,8 @@ func (s server) reset(param string) gin.HandlerFunc {
 		}
 
 		cp, found := g.currentPlayerFor(cu)
-		if !found || !g.CPorAdmin(cp.ID, cu) {
-			jerr(c, errors.Wrap(errValidation, "only the current player can reset a move"))
+		if !found || !g.CPorAdmin(cp.id, cu) {
+			jerr(c, errors.WithMessage(errValidation, "only the current player can reset a move"))
 			return
 		}
 
@@ -468,8 +470,8 @@ func (s server) undo(param string) gin.HandlerFunc {
 		}
 
 		cp, found := g.currentPlayerFor(cu)
-		if !found || !g.CPorAdmin(cp.ID, cu) {
-			jerr(c, errors.Wrap(errValidation, "only the current player can reset a move"))
+		if !found || !g.CPorAdmin(cp.id, cu) {
+			jerr(c, errors.WithMessage(errValidation, "only the current player can reset a move"))
 			return
 		}
 
@@ -528,8 +530,8 @@ func (s server) redo(param string) gin.HandlerFunc {
 		}
 
 		cp, found := g.currentPlayerFor(cu)
-		if !found || !g.CPorAdmin(cp.ID, cu) {
-			jerr(c, errors.Wrap(errValidation, "only the current player can reset a move"))
+		if !found || !g.CPorAdmin(cp.id, cu) {
+			jerr(c, errors.WithMessage(errValidation, "only the current player can reset a move"))
 			return
 		}
 
@@ -584,7 +586,7 @@ const (
 func (s server) getParam(c *gin.Context, param string) (int64, error) {
 	i, err := sn.Int64Param(c, param)
 	if err != nil {
-		return 0, errors.Wrap(err, "unable to get param")
+		return 0, errors.WithMessage(err, "unable to get param")
 	}
 	return i, nil
 }

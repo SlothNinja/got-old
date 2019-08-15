@@ -19,8 +19,9 @@ func (g game) start() game {
 		"turn":     g.Turn,
 		"pids":     pids(g.players),
 	})
+
 	g.Turn++
-	g = g.placeThieves()
+	g.Phase = phasePlaceThieves
 	g.Stack = g.Stack.Update().Commit()
 	return g
 }

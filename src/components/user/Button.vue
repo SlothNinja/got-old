@@ -24,8 +24,15 @@
     computed: {
       showlink: function() {
         var self = this
-        return `https://user.slothninja.com/#/show/${self.user.id}`
-      }
+        if (self.dev) {
+          return `http://user.slothninja.com:8080/#/show/${self.user.id}`
+        } else {
+          return `https://user.slothninja.com/#/show/${self.user.id}`
+        }
+      },
+      dev: function() {
+        return this.$root.dev
+      },
     }
   }
 </script>

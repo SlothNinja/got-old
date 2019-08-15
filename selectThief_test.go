@@ -109,7 +109,7 @@ var _ = Describe("Select Thief", func() {
 			a, found = g.grid.area(1, 1)
 			Expect(found).To(BeTrue())
 
-			g, a = g.placeThief(cp, a)
+			g, a = g.placeThiefIn(cp, a)
 		})
 
 		Context("when there is a valid request", func() {

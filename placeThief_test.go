@@ -5,19 +5,62 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"bitbucket.org/SlothNinja/store"
 	"bitbucket.org/SlothNinja/user"
+	"cloud.google.com/go/datastore"
 	"github.com/gin-gonic/gin"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("PlaceThief", func() {
+var _ = Describe("s.placeThief", func() {
+	var (
+		c      *gin.Context
+		s      server
+		r      *gin.Engine
+		resp   *httptest.ResponseRecorder
+		req    *http.Request
+		u1, u2 user.User2
+	)
+
+	BeforeEach(func() {
+		setGinMode()
+		r = newRouter(newCookieStore())
+
+		u1, u2 = createUsers()
+		es := make(map[*datastore.Key]interface{})
+		es[newKey(1)] = createGame(c, u1, u2)
+		s = server{&store.Mock{Entities: es}}
+		addRoutes(rootPath, r, s)
+
+		resp = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(resp)
+
+		req = httptest.NewRequest(
+			http.MethodPut,
+			"/"+placeThiefPath+"/1",
+			strings.NewReader(`{ "row": 1 , "column": 1 }`),
+		)
+	})
+
+	JustBeforeEach(func() {
+		r.ServeHTTP(resp, req)
+	})
+
+	Context("when no current user", func() {
+		It("should indicate there is no current user", func() {
+			Expect(resp.Code).To(Equal(http.StatusOK))
+			Expect(resp.Body.String()).To(ContainSubstring("unable to find current user"))
+		})
+	})
+})
+
+var _ = Describe("g.placeThief", func() {
 	var (
 		c          *gin.Context
 		cp         player
 		a          area
-		resp       *httptest.ResponseRecorder
 		g          game
 		cu, u1, u2 user.User2
 		found      bool
@@ -25,8 +68,7 @@ var _ = Describe("PlaceThief", func() {
 	)
 
 	BeforeEach(func() {
-		resp = httptest.NewRecorder()
-		c, _ = gin.CreateTestContext(resp)
+		c, _ = gin.CreateTestContext(httptest.NewRecorder())
 
 		u1, u2 = createUsers()
 
@@ -34,7 +76,7 @@ var _ = Describe("PlaceThief", func() {
 	})
 
 	JustBeforeEach(func() {
-		g, err = g.PlaceThief(c)
+		g, err = g.placeThief(c)
 	})
 
 	Context("when no current user", func() {
@@ -91,7 +133,7 @@ var _ = Describe("PlaceThief", func() {
 			It("should place thief", func() {
 				a, found = g.grid.area(1, 1)
 				Expect(found).To(BeTrue())
-				Expect(a.thief.pid).Should(Equal(cp.ID))
+				Expect(a.thief.pid).Should(Equal(cp.id))
 			})
 
 			Context("when thief already in selected area", func() {
@@ -99,7 +141,7 @@ var _ = Describe("PlaceThief", func() {
 					a, found = g.grid.area(1, 1)
 					Expect(found).To(BeTrue())
 
-					g, a = g.placeThief(cp, a)
+					g, a = g.placeThiefIn(cp, a)
 				})
 
 				It("should indicate area already has thief", func() {

@@ -39,10 +39,10 @@ func (g game) validateFinishTurn(c *gin.Context) (player, error) {
 	switch {
 	case !found:
 		return player{}, errors.WithMessage(errValidation, "current player not found")
-	case !g.CPorAdmin(cp.ID, cu):
+	case !g.CPorAdmin(cp.id, cu):
 		return player{}, errors.WithMessage(errValidation,
 			"only the current player can perform the selected action")
-	case !cp.PerformedAction:
+	case !cp.performedAction:
 		return player{}, errors.WithMessage(errValidation, "you have yet to perform an action")
 	default:
 		return cp, nil
@@ -94,7 +94,7 @@ func (g game) placeThievesFinishTurn(c *gin.Context) (game, error) {
 		np = cp
 	}
 
-	g.CPUserIndices = []int{np.ID}
+	g.CPUserIndices = []int{np.id}
 
 	g.Stack = g.Commit()
 	g = g.beginningOfTurnReset(np)
@@ -114,7 +114,7 @@ func (g game) validatePlaceThievesFinishTurn(c *gin.Context) (player, error) {
 	case err != nil:
 		return player{}, err
 	case g.Phase != phasePlaceThieves:
-		return player{}, errors.Wrap(errValidation, "wrong phase for selected action")
+		return player{}, errors.WithMessage(errValidation, "wrong phase for selected action")
 	default:
 		return cp, nil
 	}
@@ -126,7 +126,7 @@ func (g game) moveThiefNextPlayer(p player) (player, bool) {
 		switch {
 		case !found:
 			return player{}, false
-		case !np.Passed:
+		case !np.passed:
 			return np, true
 		default:
 			p = np
@@ -155,7 +155,7 @@ func (g game) moveThiefFinishTurn(c *gin.Context) (game, error) {
 
 	// If game did not end, select next player and continue moving thieves.
 
-	g.CPUserIndices = []int{np.ID}
+	g.CPUserIndices = []int{np.id}
 	g.Turn++
 
 	g.Phase = phasePlayCard
@@ -179,7 +179,7 @@ func (g game) validateMoveThiefFinishTurn(c *gin.Context) (player, error) {
 	case err != nil:
 		return player{}, err
 	case g.Phase != phaseClaimItem:
-		return player{}, errors.Wrap(errValidation, "wrong phase for selected action")
+		return player{}, errors.WithMessage(errValidation, "wrong phase for selected action")
 	default:
 		return cp, nil
 	}

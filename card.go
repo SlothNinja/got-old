@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"bitbucket.org/SlothNinja/log"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
@@ -20,6 +21,9 @@ type jCard struct {
 }
 
 func (c *card) UnmarshalJSON(bs []byte) error {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	var j jCard
 	err := json.Unmarshal(bs, &j)
 	if err != nil {
@@ -30,16 +34,25 @@ func (c *card) UnmarshalJSON(bs []byte) error {
 }
 
 func (c card) MarshalJSON() ([]byte, error) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	j := jCard{Kind: c.kind, Facing: c.facing}
 	return json.Marshal(j)
 }
 
 // newCard provides a new card having the specified kind and facing.
 func newCard(k cdKind, f cdFacing) card {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return card{kind: k, facing: f}
 }
 
 func newDeck() []card {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	deck := make([]card, 64)
 	for j := 0; j < 8; j++ {
 		for i, k := range []cdKind{cdLamp, cdCamel, cdSword, cdCarpet, cdCoins, cdTurban, cdJewels, cdGuard} {
@@ -51,12 +64,18 @@ func newDeck() []card {
 
 // turn sets the facing of the card to the specified value.
 func (c card) turn(f cdFacing) card {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	c.facing = f
 	return c
 }
 
 // turn sets the facing of the cards to the specified value.
 func turn(f cdFacing, cs []card) []card {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	cs2 := make([]card, len(cs))
 	for i := range cs {
 		cs2[i] = cs[i].turn(f)
@@ -67,24 +86,36 @@ func turn(f cdFacing, cs []card) []card {
 // removeAt returns a slice with the card at the specified index removed.
 // removeAt will panic if index exceeds bounds of card slice.
 func removeAt(i int, cs []card) []card {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return append(cs[:i], cs[i+1:]...)
 }
 
 // drawFrom returns a slice with the card removed as well as the card removed.
 // drawFrom will panic if index exceeds bounds of card slice.
 func drawFrom(i int, cs []card) ([]card, card) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return removeAt(i, cs), cs[i]
 }
 
 // draw retruns a slice with the first card removed as well as the card removed.
 // draw will panic if index exceeds bounds of card slice.
 func draw(cs []card) ([]card, card) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return drawFrom(0, cs)
 }
 
 // findIndexFor return index for the first card in the card slice that satisfies test.
 // findIndexFor also returns whether a card in the card slice satisfied test.
 func findIndexFor(cs []card, test func(card) bool) (int, bool) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	for i := range cs {
 		found := test(cs[i])
 		if found {
@@ -96,6 +127,9 @@ func findIndexFor(cs []card, test func(card) bool) (int, bool) {
 
 // startHand returns a new starting hand of cards.
 func startHand() []card {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return []card{
 		newCard(cdSLamp, cdFaceUp),
 		newCard(cdSLamp, cdFaceUp),
@@ -105,6 +139,9 @@ func startHand() []card {
 
 // value provides the point value of a card.
 func (c card) value() int {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	switch c.kind {
 	case cdSword:
 		return 5
@@ -125,6 +162,9 @@ func (c card) value() int {
 
 // countBy returns the count of cards in the slice of cards that satisfy test.
 func countBy(cs []card, test func(card) bool) int {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	count := 0
 	for _, c := range cs {
 		if test(c) {
@@ -137,6 +177,9 @@ func countBy(cs []card, test func(card) bool) int {
 // getIndex returns the index of the card in the card slice having the kind specified by "kind"
 // in the JSON object received via the gin.Context.
 func getIndex(c *gin.Context, cs []card) (int, error) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	obj := new(card)
 	err := c.ShouldBindJSON(obj)
 	if err != nil {
@@ -180,11 +223,17 @@ const (
 
 // MarshalJSON implements the json.Marshaler interface for Kind.
 func (k cdKind) MarshalJSON() ([]byte, error) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return json.Marshal(k.idString())
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface for Kind.
 func (k *cdKind) UnmarshalJSON(bs []byte) error {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	var s string
 
 	err := json.Unmarshal(bs, &s)
@@ -197,6 +246,9 @@ func (k *cdKind) UnmarshalJSON(bs []byte) error {
 
 // kindFor returns the Kind represented by the string.
 func kindFor(s string) cdKind {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	switch s = strings.ToLower(s); s {
 	case "lamp":
 		return cdLamp
@@ -227,6 +279,9 @@ func kindFor(s string) cdKind {
 // String does not distinguish between Camel and SCamel kinds.
 // String also does not distinguish between Lamp and SLamp kinds.
 func (k cdKind) String() string {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	switch k {
 	case cdLamp:
 		return "Lamp"
@@ -255,6 +310,9 @@ func (k cdKind) String() string {
 
 // lString returns a lower case representation of the Kind.
 func (k cdKind) lString() string {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return strings.ToLower(k.String())
 }
 
@@ -262,6 +320,9 @@ func (k cdKind) lString() string {
 // idString distinguishes between Camel and SCamel kinds.
 // idString also distinguish between Lamp and SLamp kinds.
 func (k cdKind) idString() string {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	switch k {
 	case cdSCamel:
 		return "start-camel"

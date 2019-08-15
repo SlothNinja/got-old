@@ -1,56 +1,95 @@
 package main
 
 import (
+	"encoding/json"
 	"math/rand"
 
-	snp "bitbucket.org/SlothNinja/player"
+	"bitbucket.org/SlothNinja/color"
+	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
 )
 
-const pidNone = snp.NoPID
+var defaultColors = []color.Color{color.Yellow, color.Purple, color.Green, color.Black}
+
+const pidNone = 0
 
 // Player represents one of the players of the game.
 type player struct {
-	snp.Player
-	Hand        []card `json:"hand"`
-	DrawPile    []card `json:"draw"`
-	DiscardPile []card `json:"discard"`
+	id              int
+	performedAction bool
+	score           int
+	passed          bool
+	colors          []color.Color
+	user            user.User2
+	hand            []card
+	drawPile        []card
+	discardPile     []card
 }
 
-// type playerNoCards struct {
-// 	player.Player
-// 	User        *user.User2 `json:"user"`
-// 	Hand        []card     `json:"-"`
-// 	DrawPile    []card     `json:"-"`
-// 	DiscardPile []card     `json:"-"`
-// }
+type jPlayer struct {
+	ID              int           `json:"id"`
+	PerformedAction bool          `json:"performedAction"`
+	Score           int           `json:"score"`
+	Passed          bool          `json:"passed"`
+	Colors          []color.Color `json:"colors"`
+	User            user.User2    `json:"user"`
+	Hand            []card        `json:"hand"`
+	DrawPile        []card        `json:"draw"`
+	DiscardPile     []card        `json:"discard"`
+}
+
+func (p player) MarshalJSON() ([]byte, error) {
+	j := jPlayer{
+		ID:              p.id,
+		PerformedAction: p.performedAction,
+		Score:           p.score,
+		Passed:          p.passed,
+		Colors:          p.colors,
+		User:            p.user,
+		Hand:            p.hand,
+		DrawPile:        p.drawPile,
+		DiscardPile:     p.discardPile,
+	}
+	return json.Marshal(j)
+}
+
+func (p *player) UnmarshalJSON(bs []byte) error {
+	var j jPlayer
+	err := json.Unmarshal(bs, &j)
+	if err != nil {
+		return err
+	}
+	p.id, p.performedAction, p.score, p.passed = j.ID, j.PerformedAction, j.Score, j.Passed
+	p.colors, p.user, p.hand, p.drawPile, p.discardPile = j.Colors, j.User, j.Hand, j.DrawPile, j.DiscardPile
+	return nil
+}
 
 func newPlayer() player {
 	return player{
-		Hand:        startHand(),
-		DrawPile:    make([]card, 0),
-		DiscardPile: make([]card, 0),
+		hand:        startHand(),
+		drawPile:    make([]card, 0),
+		discardPile: make([]card, 0),
 	}
 }
 
 func (p player) defeated(p2 player) (bool, bool) {
-	if p.Score != p2.Score {
-		return p.Score > p2.Score, false
+	if p.score != p2.score {
+		return p.score > p2.score, false
 	}
 
 	lampTest := func(c card) bool { return c.kind == cdLamp }
-	lamp1, lamp2 := countBy(p.Hand, lampTest), countBy(p2.Hand, lampTest)
+	lamp1, lamp2 := countBy(p.hand, lampTest), countBy(p2.hand, lampTest)
 	if lamp1 != lamp2 {
 		return lamp1 > lamp2, false
 	}
 
 	camelTest := func(c card) bool { return c.kind == cdCamel }
-	camel1, camel2 := countBy(p.Hand, camelTest), countBy(p2.Hand, camelTest)
+	camel1, camel2 := countBy(p.hand, camelTest), countBy(p2.hand, camelTest)
 	if camel1 != camel2 {
 		return camel1 > camel2, false
 	}
 
-	cds1, cds2 := len(p.Hand), len(p2.Hand)
+	cds1, cds2 := len(p.hand), len(p2.hand)
 	if cds1 != cds2 {
 		return cds1 > cds2, false
 	}
@@ -62,42 +101,42 @@ func (p player) defeated(p2 player) (bool, bool) {
 // }
 
 func (p player) clearActions() player {
-	p.PerformedAction = false
+	p.performedAction = false
 	return p
 }
 
 func (p player) draw() (player, card, bool) {
-	shuffle := len(p.DrawPile) < 1
+	shuffle := len(p.drawPile) < 1
 	if shuffle {
 		p = p.shuffle()
 	}
 
 	var cd card
-	p.DrawPile, cd = draw(p.DrawPile)
+	p.drawPile, cd = draw(p.drawPile)
 	cd.turn(cdFaceUp)
-	p.Hand = append(p.Hand, cd)
+	p.hand = append(p.hand, cd)
 	return p, cd, shuffle
 }
 
 func (p player) shuffle() player {
-	p.DrawPile, p.DiscardPile = p.DiscardPile, make([]card, 0)
-	p.DrawPile = turn(cdFaceDown, p.DrawPile)
-	rand.Shuffle(len(p.DrawPile), func(i, j int) {
-		p.DrawPile[i], p.DrawPile[j] = p.DrawPile[j], p.DrawPile[i]
+	p.drawPile, p.discardPile = p.discardPile, make([]card, 0)
+	p.drawPile = turn(cdFaceDown, p.drawPile)
+	rand.Shuffle(len(p.drawPile), func(i, j int) {
+		p.drawPile[i], p.drawPile[j] = p.drawPile[j], p.drawPile[i]
 	})
 	return p
 }
 
 // Equal assume two players with the same ID are equal.
 func (p player) Equal(p2 player) bool {
-	return p.ID == p2.ID
+	return p.id == p2.id
 }
 
 func (p player) collectCards() {
-	p.Hand = append(p.Hand, p.DiscardPile...)
-	p.Hand = append(p.Hand, p.DrawPile...)
-	turn(cdFaceUp, p.Hand)
-	p.DiscardPile, p.DrawPile = make([]card, 0), make([]card, 0)
+	p.hand = append(p.hand, p.discardPile...)
+	p.hand = append(p.hand, p.drawPile...)
+	turn(cdFaceUp, p.hand)
+	p.discardPile, p.drawPile = make([]card, 0), make([]card, 0)
 	return
 }
 
@@ -125,7 +164,7 @@ func (p player) collectCards() {
 
 func allPassed(ps []player) bool {
 	for _, p := range ps {
-		if !p.Passed {
+		if !p.passed {
 			return false
 		}
 	}
@@ -135,7 +174,7 @@ func allPassed(ps []player) bool {
 func pids(ps []player) []int {
 	pids := make([]int, len(ps))
 	for i := range ps {
-		pids[i] = ps[i].ID
+		pids[i] = ps[i].id
 	}
 	return pids
 }
@@ -151,14 +190,14 @@ func pids(ps []player) []int {
 func playerUKeys(ps []player) []*datastore.Key {
 	ks := make([]*datastore.Key, len(ps))
 	for i := range ps {
-		ks[i] = ps[i].User.Key
+		ks[i] = ps[i].user.Key
 	}
 	return ks
 }
 
 func playerFindIndex(p player, ps []player) (int, bool) {
 	for index := range ps {
-		if p.ID == ps[index].ID {
+		if p.id == ps[index].id {
 			return index, true
 		}
 	}
@@ -167,7 +206,7 @@ func playerFindIndex(p player, ps []player) (int, bool) {
 
 func playerByID(pid int, ps []player) (player, bool) {
 	for _, p := range ps {
-		if p.ID == pid {
+		if p.id == pid {
 			return p, true
 		}
 	}
@@ -204,7 +243,7 @@ func playerByIndex(numPlayers int, ps []player) player {
 // }
 
 func (p player) hideCards() player {
-	p.Hand, p.DiscardPile, p.DrawPile = []card{}, []card{}, []card{}
+	p.hand, p.discardPile, p.drawPile = []card{}, []card{}, []card{}
 	return p
 }
 

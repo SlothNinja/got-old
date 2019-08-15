@@ -10,9 +10,13 @@ import (
 
 const placeThiefID = "place-thief"
 
-func (g game) PlaceThief(c *gin.Context) (game, error) {
-	log.Debugf("Entering")
-	defer log.Debugf("Exiting")
+func (s server) placeThief() gin.HandlerFunc {
+	return s.update(param, (game).placeThief)
+}
+
+func (g game) placeThief(c *gin.Context) (game, error) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
 
 	cp, a, err := g.validatePlaceThief(c)
 	if err != nil {
@@ -22,18 +26,18 @@ func (g game) PlaceThief(c *gin.Context) (game, error) {
 	g.Log = nil
 	g.Log = append(g.Log, logEntry{
 		"template": placeThiefID,
-		"pid":      cp.ID,
+		"pid":      cp.id,
 		"phase":    g.Phase,
 		"turn":     g.Turn,
 		"area":     a,
 	})
 
 	// Update game state to reflect placed thief.
-	cp.PerformedAction = true
-	cp.Score += a.card.value()
+	cp.performedAction = true
+	cp.score += a.card.value()
 	g = g.updatePlayer(cp)
 
-	g, a = g.placeThief(cp, a)
+	g, a = g.placeThiefIn(cp, a)
 
 	g.Stack = g.Stack.Update()
 	cu, _ := user.Current(c)
@@ -42,17 +46,18 @@ func (g game) PlaceThief(c *gin.Context) (game, error) {
 	return g, nil
 }
 
-func (g game) placeThief(p player, a area) (game, area) {
-	a.thief.pid = p.ID
+func (g game) placeThiefIn(p player, a area) (game, area) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
+	a.thief.pid = p.id
 	return g.updateArea(a), a
 }
 
-func (g game) placeThieves() game {
-	g.Phase = phasePlaceThieves
-	return g
-}
-
 func (g game) validatePlaceThief(c *gin.Context) (player, area, error) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	cp, err := g.validatePlayerAction(c)
 	if err != nil {
 		return player{}, area{}, err
@@ -63,11 +68,11 @@ func (g game) validatePlaceThief(c *gin.Context) (player, area, error) {
 	case err != nil:
 		return player{}, area{}, err
 	case a.card.kind == cdNone:
-		return player{}, area{}, errors.Wrap(errValidation, "selected area has no card to claim")
+		return player{}, area{}, errors.WithMessage(errValidation, "selected area has no card to claim")
 	case a.thief.pid != pidNone:
-		return player{}, area{}, errors.Wrap(errValidation, "selected area already has a thief")
+		return player{}, area{}, errors.WithMessage(errValidation, "selected area already has a thief")
 	case g.Phase != phasePlaceThieves:
-		return player{}, area{}, errors.Wrap(errValidation, "wrong phase for placing thieves")
+		return player{}, area{}, errors.WithMessage(errValidation, "wrong phase for placing thieves")
 	default:
 		return cp, a, nil
 	}

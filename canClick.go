@@ -1,10 +1,16 @@
 package main
 
-import "bitbucket.org/SlothNinja/user"
+import (
+	"bitbucket.org/SlothNinja/log"
+	"bitbucket.org/SlothNinja/user"
+)
 
 func (g game) updateClickablesFor(u user.User2) game {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	canClick := g.canClick(u)
-	g.grid.Each(func(a area) area {
+	g.grid.each(func(a area) area {
 		a.clickable = canClick(a)
 		return a
 	})
@@ -15,9 +21,12 @@ func (g game) updateClickablesFor(u user.User2) game {
 // a particular area in the grid.  The main benefit is the function provides a closure around area computions,
 // essentially caching the results.
 func (g game) canClick(u user.User2) func(area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	ff := func(a area) bool { return false }
 	cp, found := g.currentPlayerFor(u)
-	if !found || cp.PerformedAction {
+	if !found || cp.performedAction {
 		return ff
 	}
 
@@ -25,7 +34,7 @@ func (g game) canClick(u user.User2) func(area) bool {
 	case phasePlaceThieves:
 		return func(a area) bool { return a.thief.pid == pidNone }
 	case phaseSelectThief:
-		return func(a area) bool { return a.thief.pid == cp.ID }
+		return func(a area) bool { return a.thief.pid == cp.id }
 	case phaseMoveThief:
 		var as []area
 		switch {
@@ -50,10 +59,16 @@ func (g game) canClick(u user.User2) func(area) bool {
 }
 
 func (g game) isLampArea(a area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return hasArea(g.lampAreas(), a)
 }
 
 func (g game) lampAreas() []area {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	var (
 		as []area
 		a2 area
@@ -79,7 +94,7 @@ func (g game) lampAreas() []area {
 
 	// Move right
 	add = false
-	for col := a1.column + 1; col <= g.grid.NumCols(); col++ {
+	for col := a1.column + 1; col <= g.grid.numCols(); col++ {
 		temp, found := g.grid.area(a1.row, col)
 		if !found || !canMoveTo(temp) {
 			break
@@ -106,7 +121,7 @@ func (g game) lampAreas() []area {
 
 	// Move Down
 	add = false
-	for row := a1.row + 1; row <= g.grid.NumRows(); row++ {
+	for row := a1.row + 1; row <= g.grid.numRows(); row++ {
 		temp, found := g.grid.area(row, a1.column)
 		if !found || !canMoveTo(temp) {
 			break
@@ -121,10 +136,16 @@ func (g game) lampAreas() []area {
 }
 
 func (g game) isCamelArea(a area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return hasArea(g.camelAreas(), a)
 }
 
 func (g game) camelAreas() []area {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	var as []area
 
 	a, found := g.SelectedThiefArea()
@@ -143,7 +164,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move Three Right?
-	if a.column+3 <= g.grid.NumCols() {
+	if a.column+3 <= g.grid.numCols() {
 		area1, found1 := g.grid.area(a.row, a.column+1)
 		area2, found2 := g.grid.area(a.row, a.column+2)
 		area3, found3 := g.grid.area(a.row, a.column+3)
@@ -163,7 +184,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move Three Down?
-	if a.row+3 <= g.grid.NumRows() {
+	if a.row+3 <= g.grid.numRows() {
 		area1, found1 := g.grid.area(a.row+1, a.column)
 		area2, found2 := g.grid.area(a.row+2, a.column)
 		area3, found3 := g.grid.area(a.row+3, a.column)
@@ -187,7 +208,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move Two Left One Down or One Down Two Left or One Left One Down One Left?
-	if a.column-2 >= col1 && a.row+1 <= g.grid.NumRows() {
+	if a.column-2 >= col1 && a.row+1 <= g.grid.numRows() {
 		area1, found1 := g.grid.area(a.row, a.column-1)
 		area2, found2 := g.grid.area(a.row, a.column-2)
 		area3, found3 := g.grid.area(a.row+1, a.column-2)
@@ -201,7 +222,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move Two Right One Up or One Up Two Right or One Right One Up One Right?
-	if a.column+2 <= g.grid.NumCols() && a.row-1 >= rowA {
+	if a.column+2 <= g.grid.numCols() && a.row-1 >= rowA {
 		area1, found1 := g.grid.area(a.row, a.column+1)
 		area2, found2 := g.grid.area(a.row, a.column+2)
 		area3, found3 := g.grid.area(a.row-1, a.column+2)
@@ -215,7 +236,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move Two Right One Down or One Down Two Right or One Right One Down One Right?
-	if a.column+2 <= g.grid.NumCols() && a.row+1 <= g.grid.NumRows() {
+	if a.column+2 <= g.grid.numCols() && a.row+1 <= g.grid.numRows() {
 		area1, found1 := g.grid.area(a.row, a.column+1)
 		area2, found2 := g.grid.area(a.row, a.column+2)
 		area3, found3 := g.grid.area(a.row+1, a.column+2)
@@ -229,7 +250,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move One Right Two Down or Two Down One Right or One Down One Right One Down?
-	if a.column+1 <= g.grid.NumCols() && a.row+2 <= g.grid.NumRows() {
+	if a.column+1 <= g.grid.numCols() && a.row+2 <= g.grid.numRows() {
 		area1, found1 := g.grid.area(a.row+1, a.column)
 		area2, found2 := g.grid.area(a.row+2, a.column)
 		area3, found3 := g.grid.area(a.row+2, a.column+1)
@@ -243,7 +264,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move One Right Two Up or Two Up One Right or One Up One Right One Up?
-	if a.column+1 <= g.grid.NumCols() && a.row-2 >= rowA {
+	if a.column+1 <= g.grid.numCols() && a.row-2 >= rowA {
 		area1, found1 := g.grid.area(a.row-1, a.column)
 		area2, found2 := g.grid.area(a.row-2, a.column)
 		area3, found3 := g.grid.area(a.row-2, a.column+1)
@@ -257,7 +278,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move One Left Two Down or Two Down One Left or One Down One Left One Down?
-	if a.column-1 >= col1 && a.row+2 <= g.grid.NumRows() {
+	if a.column-1 >= col1 && a.row+2 <= g.grid.numRows() {
 		area1, found1 := g.grid.area(a.row+1, a.column)
 		area2, found2 := g.grid.area(a.row+2, a.column)
 		area3, found3 := g.grid.area(a.row+2, a.column-1)
@@ -295,7 +316,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move One Up One Right One Down or One Right One Up One Left?
-	if a.column+1 <= g.grid.NumCols() && a.row-1 >= rowA {
+	if a.column+1 <= g.grid.numCols() && a.row-1 >= rowA {
 		area1, found1 := g.grid.area(a.row, a.column+1)
 		area2, found2 := g.grid.area(a.row-1, a.column+1)
 		area3, found3 := g.grid.area(a.row-1, a.column)
@@ -305,7 +326,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move One Left One Down One Right or One Down One Left One Up?
-	if a.column-1 >= col1 && a.row+1 <= g.grid.NumRows() {
+	if a.column-1 >= col1 && a.row+1 <= g.grid.numRows() {
 		area1, found1 := g.grid.area(a.row, a.column-1)
 		area2, found2 := g.grid.area(a.row+1, a.column-1)
 		area3, found3 := g.grid.area(a.row+1, a.column)
@@ -315,7 +336,7 @@ func (g game) camelAreas() []area {
 	}
 
 	// Move One Down One Right One Up or One Right One Down One Left?
-	if a.column+1 <= g.grid.NumCols() && a.row+1 <= g.grid.NumRows() {
+	if a.column+1 <= g.grid.numCols() && a.row+1 <= g.grid.numRows() {
 		area1, found1 := g.grid.area(a.row, a.column+1)
 		area2, found2 := g.grid.area(a.row+1, a.column+1)
 		area3, found3 := g.grid.area(a.row+1, a.column)
@@ -328,6 +349,9 @@ func (g game) camelAreas() []area {
 }
 
 func canMoveTo(as ...area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	for _, a := range as {
 		if a.hasThief() || !a.hasCard() {
 			return false
@@ -337,10 +361,16 @@ func canMoveTo(as ...area) bool {
 }
 
 func (g game) isSwordAreaFor(cp player, a area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return hasArea(g.swordAreasFor(cp), a)
 }
 
 func (g game) swordAreasFor(cp player) []area {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	var as []area
 
 	a, found := g.SelectedThiefArea()
@@ -373,7 +403,7 @@ func (g game) swordAreasFor(cp player) []area {
 	// Move Right
 
 	// Right as far as permitted
-	for row, col := a.row, a.column+1; col <= g.grid.NumCols(); col++ {
+	for row, col := a.row, a.column+1; col <= g.grid.numCols(); col++ {
 		temp, found := g.grid.area(row, col)
 		if !found {
 			break
@@ -415,7 +445,7 @@ func (g game) swordAreasFor(cp player) []area {
 	// Move Down
 
 	// Down as far as permitted
-	for row, col := a.row+1, a.column; row <= g.grid.NumRows(); row++ {
+	for row, col := a.row+1, a.column; row <= g.grid.numRows(); row++ {
 		temp, found := g.grid.area(row, col)
 		if !found {
 			break
@@ -436,10 +466,16 @@ func (g game) swordAreasFor(cp player) []area {
 }
 
 func (g game) isCarpetArea(a area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return hasArea(g.carpetAreas(), a)
 }
 
 func (g game) carpetAreas() []area {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	var (
 		as []area
 		a2 area
@@ -475,7 +511,7 @@ MoveLeft:
 	found1, add = false, false
 
 MoveRight:
-	for col := a1.column + 1; col <= g.grid.NumCols(); col++ {
+	for col := a1.column + 1; col <= g.grid.numCols(); col++ {
 		switch temp, found := g.grid.area(a1.row, col); {
 		case found && !temp.hasCard():
 			found1 = true
@@ -515,7 +551,7 @@ MoveUp:
 	found1, add = false, false
 
 MoveDown:
-	for row := a1.row + 1; row <= g.grid.NumRows(); row++ {
+	for row := a1.row + 1; row <= g.grid.numRows(); row++ {
 		switch temp, found := g.grid.area(row, a1.column); {
 		case found && temp.hasCard():
 			found1 = true
@@ -534,10 +570,16 @@ MoveDown:
 }
 
 func (g game) isTurban0Area(a area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return hasArea(g.turban0Areas(), a)
 }
 
 func (g game) turban0Areas() []area {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	var (
 		as []area
 		a2 area
@@ -632,10 +674,16 @@ func (g game) turban0Areas() []area {
 }
 
 func (g game) isTurban1Area(a area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return hasArea(g.turban1Areas(), a)
 }
 
 func (g game) turban1Areas() []area {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	var as []area
 
 	a, found := g.SelectedThiefArea()
@@ -671,9 +719,15 @@ func (g game) turban1Areas() []area {
 }
 
 func (g game) isCoinsArea(a area) bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return hasArea(g.coinsAreas(), a)
 }
 
 func (g game) coinsAreas() []area {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	return g.turban1Areas()
 }

@@ -17,8 +17,8 @@ func (g game) Pass(c *gin.Context) (game, error) {
 		return g, err
 	}
 
-	cp.Passed = true
-	cp.PerformedAction = true
+	cp.passed = true
+	cp.performedAction = true
 
 	g.Phase = phaseClaimItem
 	cu, _ := user.Current(c)
@@ -45,7 +45,7 @@ func (g game) validatePass(c *gin.Context) (player, error) {
 	case err != nil:
 		return player{}, err
 	case g.Phase != phasePlayCard:
-		return player{}, errors.Wrap(errValidation, "wrong phase for selected action")
+		return player{}, errors.WithMessage(errValidation, "wrong phase for selected action")
 	}
 	return cp, nil
 }

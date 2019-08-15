@@ -57,7 +57,7 @@ func createUsers3() (user.User2, user.User2, user.User2) {
 	u3 := user.New2("3")
 	u3.Name = "george3"
 
-	return u1, u2, u2
+	return u1, u2, u3
 }
 
 func createGame3(c *gin.Context, u1, u2, u3 user.User2) game {

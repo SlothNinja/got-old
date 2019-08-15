@@ -1,17 +1,62 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
+	"bitbucket.org/SlothNinja/store"
 	"bitbucket.org/SlothNinja/user"
+	"cloud.google.com/go/datastore"
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Move Thief", func() {
+var _ = Describe("s.placeThief", func() {
+	var (
+		c      *gin.Context
+		s      server
+		r      *gin.Engine
+		resp   *httptest.ResponseRecorder
+		req    *http.Request
+		u1, u2 user.User2
+	)
+
+	BeforeEach(func() {
+		setGinMode()
+		r = newRouter(newCookieStore())
+
+		u1, u2 = createUsers()
+		es := make(map[*datastore.Key]interface{})
+		es[newKey(1)] = createGame(c, u1, u2)
+		s = server{&store.Mock{Entities: es}}
+		addRoutes(rootPath, r, s)
+
+		resp = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(resp)
+
+		req = httptest.NewRequest(
+			http.MethodPut,
+			"/"+moveThiefPath+"/1",
+			strings.NewReader(`{ "row": 1 , "column": 1 }`),
+		)
+	})
+
+	JustBeforeEach(func() {
+		r.ServeHTTP(resp, req)
+	})
+
+	Context("when no current user", func() {
+		It("should indicate there is no current user", func() {
+			Expect(resp.Code).To(Equal(http.StatusOK))
+			Expect(resp.Body.String()).To(ContainSubstring("unable to find current user"))
+		})
+	})
+})
+
+var _ = Describe("g.moveThief", func() {
 	var (
 		c          *gin.Context
 		cp         player
@@ -71,12 +116,12 @@ var _ = Describe("Move Thief", func() {
 
 			to, found = g.grid.area(to.row, to.column)
 			Expect(found).To(BeTrue())
-			Expect(to.thief.pid).To(Equal(cp.ID))
+			Expect(to.thief.pid).To(Equal(cp.id))
 		})
 	}
 
 	JustBeforeEach(func() {
-		g, err = g.MoveThief(c)
+		g, err = g.moveThiefAction(c)
 	})
 
 	Context("when there is no current user", func() {
@@ -124,13 +169,11 @@ var _ = Describe("Move Thief", func() {
 			cp, found = g.currentPlayerFor(cu)
 			Expect(found).To(BeTrue())
 
-			from, found = g.grid.area(1, 1)
+			from, found = g.grid.area(4, 4)
 			Expect(found).To(BeTrue())
 
-			from.thief.pid = cp.ID
+			from.thief.pid = cp.id
 			g = g.updateArea(from)
-
-			g.playedCard = newCard(cdCamel, cdFaceUp)
 
 			g.selectedAreaID = from.areaID
 
@@ -140,17 +183,295 @@ var _ = Describe("Move Thief", func() {
 		})
 
 		Context("when there is a valid request", func() {
-			BeforeEach(func() {
-				c.Request = httptest.NewRequest(
-					http.MethodPost,
-					"/"+placeThiefPath,
-					strings.NewReader(`{ "row": 2, "column": 3 }`),
-				)
-				c.Request.Header.Set("Content-Type", "application/json")
+			Context("when the played card is a camel", func() {
+				BeforeEach(func() {
+					to, found = g.grid.area(2, 3)
+					Expect(found).To(BeTrue())
+					g.playedCard = newCard(cdCamel, cdFaceUp)
+					c.Request = httptest.NewRequest(
+						http.MethodPost,
+						"/"+moveThiefPath+"/1",
+						strings.NewReader(fmt.Sprintf(`{ "row": %d, "column": %d }`,
+							to.row, to.column)),
+					)
+					c.Request.Header.Set("Content-Type", "application/json")
+				})
+				AssertSuccessfulBehavior()
 			})
 
-			AssertSuccessfulBehavior()
+			Context("when the played card is a lamp", func() {
+				BeforeEach(func() {
+					to, found = g.grid.area(1, 4)
+					Expect(found).To(BeTrue())
+					g.playedCard = newCard(cdLamp, cdFaceUp)
+					c.Request = httptest.NewRequest(
+						http.MethodPost,
+						"/"+moveThiefPath+"/1",
+						strings.NewReader(fmt.Sprintf(`{ "row": %d, "column": %d }`,
+							to.row, to.column)),
+					)
+					c.Request.Header.Set("Content-Type", "application/json")
+				})
 
+				AssertSuccessfulBehavior()
+
+				Context("when not first turn", func() {
+					var discardPile int
+
+					BeforeEach(func() {
+						g.Turn = 10
+						cp.drawPile = append(cp.drawPile, card{cdCamel, cdFaceDown}, card{cdLamp, cdFaceDown})
+						discardPile = len(cp.discardPile)
+						g.updatePlayer(cp)
+					})
+
+					AssertSuccessfulBehavior()
+
+					It("should place claimed card in discard pile", func() {
+						cp, found = playerByID(cp.id, g.players)
+						Expect(found).To(BeTrue())
+						Expect(cp.discardPile).To(HaveLen(discardPile + 1))
+					})
+				})
+
+				Context("when no selected thief", func() {
+					BeforeEach(func() {
+						g.selectedAreaID = areaID{}
+					})
+
+					AssertFailedBehavior()
+				})
+
+				Context("when invalid to area", func() {
+					BeforeEach(func() {
+						to, found = g.grid.area(0, 0)
+						Expect(found).To(BeFalse())
+						c.Request = httptest.NewRequest(
+							http.MethodPost,
+							"/"+moveThiefPath+"/1",
+							strings.NewReader(fmt.Sprintf(`{ "row": %d, "column": %d }`,
+								to.row, to.column)),
+						)
+						c.Request.Header.Set("Content-Type", "application/json")
+					})
+
+					AssertFailedBehavior()
+				})
+
+				Context("when from area has thief of another player", func() {
+					BeforeEach(func() {
+						from.thief.pid = cp.id + 1
+						g = g.updateArea(from)
+					})
+
+					AssertFailedBehavior()
+				})
+
+				Context("when no card played", func() {
+					BeforeEach(func() {
+						g.playedCard = card{}
+					})
+
+					AssertFailedBehavior()
+				})
+
+				Context("when card does not permit movement to selected destination", func() {
+					BeforeEach(func() {
+						to, found = g.grid.area(2, 4)
+						Expect(found).To(BeTrue())
+						c.Request = httptest.NewRequest(
+							http.MethodPost,
+							"/"+moveThiefPath+"/1",
+							strings.NewReader(fmt.Sprintf(`{ "row": %d, "column": %d }`,
+								to.row, to.column)),
+						)
+						c.Request.Header.Set("Content-Type", "application/json")
+					})
+
+					AssertFailedBehavior()
+				})
+			})
+
+			Context("when the played card is a sword", func() {
+				BeforeEach(func() {
+					to, found = g.grid.area(2, 4)
+					Expect(found).To(BeTrue())
+					to.thief.pid = cp.id + 1
+					g = g.updateArea(to)
+					g.playedCard = newCard(cdSword, cdFaceUp)
+					c.Request = httptest.NewRequest(
+						http.MethodPost,
+						"/"+moveThiefPath+"/1",
+						strings.NewReader(fmt.Sprintf(`{ "row": %d, "column": %d }`,
+							to.row, to.column)),
+					)
+					c.Request.Header.Set("Content-Type", "application/json")
+				})
+
+				AssertSuccessfulBehavior()
+
+				Context("when not first turn", func() {
+					var discardPile int
+
+					BeforeEach(func() {
+						g.Turn = 10
+						cp.drawPile = append(cp.drawPile, card{cdCamel, cdFaceDown}, card{cdLamp, cdFaceDown})
+						discardPile = len(cp.discardPile)
+						g.updatePlayer(cp)
+					})
+
+					AssertSuccessfulBehavior()
+
+					It("should place claimed card in discard pile", func() {
+						cp, found = playerByID(cp.id, g.players)
+						Expect(found).To(BeTrue())
+						Expect(cp.discardPile).To(HaveLen(discardPile + 1))
+					})
+				})
+			})
+
+			Context("when the played card is a coin", func() {
+				BeforeEach(func() {
+					to, found = g.grid.area(5, 4)
+					Expect(found).To(BeTrue())
+					cp.drawPile = append(cp.drawPile, card{cdCamel, cdFaceDown}, card{cdLamp, cdFaceDown})
+					g.updatePlayer(cp)
+					g.playedCard = newCard(cdCoins, cdFaceUp)
+					c.Request = httptest.NewRequest(
+						http.MethodPost,
+						"/"+moveThiefPath+"/1",
+						strings.NewReader(fmt.Sprintf(`{ "row": %d, "column": %d }`,
+							to.row, to.column)),
+					)
+					c.Request.Header.Set("Content-Type", "application/json")
+				})
+				AssertSuccessfulBehavior()
+			})
+
+			Context("when the played card is a turban", func() {
+				BeforeEach(func() {
+					to, found = g.grid.area(5, 4)
+					Expect(found).To(BeTrue())
+					cp.drawPile = append(cp.drawPile, card{cdCamel, cdFaceDown}, card{cdLamp, cdFaceDown})
+					g.updatePlayer(cp)
+					g.playedCard = newCard(cdTurban, cdFaceUp)
+					c.Request = httptest.NewRequest(
+						http.MethodPost,
+						"/"+moveThiefPath+"/1",
+						strings.NewReader(fmt.Sprintf(`{ "row": %d, "column": %d }`,
+							to.row, to.column)),
+					)
+					c.Request.Header.Set("Content-Type", "application/json")
+				})
+
+				Context("when step yet taken", func() {
+					BeforeEach(func() {
+						g.stepped = 0
+					})
+
+					It("should not error", func() {
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					It("should move thief", func() {
+						cp, found = g.currentPlayerFor(cu)
+						Expect(found).To(BeTrue())
+
+						from, found = g.grid.area(from.row, from.column)
+						Expect(found).To(BeTrue())
+						Expect(from.thief.pid).To(BeZero())
+
+						to, found = g.grid.area(to.row, to.column)
+						Expect(found).To(BeTrue())
+						Expect(to.thief.pid).To(Equal(cp.id))
+					})
+				})
+
+				Context("when step taken", func() {
+					BeforeEach(func() {
+						g.stepped = 1
+					})
+
+					AssertSuccessfulBehavior()
+				})
+			})
+		})
+	})
+})
+
+var _ = Describe("g.bumpedTo", func() {
+	var (
+		c           *gin.Context
+		resp        *httptest.ResponseRecorder
+		g           game
+		u1, u2      user.User2
+		a, from, to area
+	)
+
+	BeforeEach(func() {
+		resp = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(resp)
+
+		u1, u2 = createUsers()
+		g = createGame(c, u1, u2)
+	})
+
+	JustBeforeEach(func() {
+		a = g.bumpedTo(from, to)
+	})
+
+	Context("when moving from above", func() {
+		BeforeEach(func() {
+			from, _ = g.grid.area(1, 4)
+			to, _ = g.grid.area(3, 4)
+		})
+
+		It("should return space below", func() {
+			Expect(a.areaID).To(Equal(areaID{to.row + 1, to.column}))
+		})
+	})
+
+	Context("when moving from below", func() {
+		BeforeEach(func() {
+			from, _ = g.grid.area(5, 4)
+			to, _ = g.grid.area(3, 4)
+		})
+
+		It("should return space above", func() {
+			Expect(a.areaID).To(Equal(areaID{to.row - 1, to.column}))
+		})
+	})
+
+	Context("when moving from the left", func() {
+		BeforeEach(func() {
+			from, _ = g.grid.area(3, 1)
+			to, _ = g.grid.area(3, 4)
+		})
+
+		It("should return space to the right", func() {
+			Expect(a.areaID).To(Equal(areaID{to.row, to.column + 1}))
+		})
+	})
+
+	Context("when moving from the right", func() {
+		BeforeEach(func() {
+			from, _ = g.grid.area(3, 6)
+			to, _ = g.grid.area(3, 4)
+		})
+
+		It("should return space to the left", func() {
+			Expect(a.areaID).To(Equal(areaID{to.row, to.column - 1}))
+		})
+	})
+
+	Context("default return for invalid bump", func() {
+		BeforeEach(func() {
+			from, _ = g.grid.area(3, 4)
+			to, _ = g.grid.area(3, 4)
+		})
+
+		It("should return space to the left", func() {
+			Expect(a.areaID).To(BeZero())
 		})
 	})
 })

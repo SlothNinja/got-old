@@ -8,11 +8,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// func init() {
-// 	move.Register(moveThiefID, new(moveThiefMoveData))
-// 	move.Register(bumpedThiefID, new(bumpedThiefMoveData))
-// }
-
 const moveThiefID = "move-thief"
 const bumpedThiefID = "bumped-thief"
 
@@ -21,73 +16,16 @@ func (g game) startMoveThief() game {
 	return g
 }
 
-// type moveThiefMoveData struct {
-// 	Player    player        `json:"player"`
-// 	Phase     gHeader.Phase `json:"phase"`
-// 	Turn      int           `json:"turn"`
-// 	From      area          `json:"from"`
-// 	To        area          `json:"to"`
-// 	CreatedAt time.Time     `json:"createdAt"`
-// 	Color     color.Color   `json:"color"`
-// }
+func (s server) moveThief() gin.HandlerFunc {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
 
-// func (g game) moveThiefMoveData(p player, from, to area) moveThiefMoveData {
-// 	return moveThiefMoveData{
-// 		Player:    p.hideCards(),
-// 		Phase:     g.Phase,
-// 		Turn:      g.Turn,
-// 		From:      from,
-// 		To:        to,
-// 		CreatedAt: time.Now(),
-// 	}
-// }
+	return s.update(param, (game).moveThiefAction)
+}
 
-// func (g game) moveThiefMove(p player, from, to area) move.Move {
-// 	return move.Move{
-// 		Name: moveThiefID,
-// 		Data: g.moveThiefMoveData(p, from, to),
-// 	}
-// }
-
-// func (m moveThiefMoveData) colorize(g game, u user.User2) {
-// 	m.Color = g.colorByPIDFor(u)(m.Player.ID)
-// }
-
-// type bumpedThiefMoveData struct {
-// 	Player    player        `json:"player"`
-// 	Phase     gHeader.Phase `json:"phase"`
-// 	Turn      int           `json:"turn"`
-// 	From      area          `json:"from"`
-// 	To        area          `json:"to"`
-// 	CreatedAt time.Time     `json:"createdAt"`
-// 	Color     color.Color   `json:"color"`
-// }
-//
-// func (g game) bumpedThiefMoveData(p player, from, to area) bumpedThiefMoveData {
-// 	return bumpedThiefMoveData{
-// 		Player:    p.hideCards(),
-// 		Phase:     g.Phase,
-// 		Turn:      g.Turn,
-// 		From:      from,
-// 		To:        to,
-// 		CreatedAt: time.Now(),
-// 	}
-// }
-
-// func (g game) bumpedThiefMove(p player, from, to area) move.Move {
-// 	return move.Move{
-// 		Name: bumpedThiefID,
-// 		Data: g.bumpedThiefMoveData(p, from, to),
-// 	}
-// }
-
-// func (b bumpedThiefMoveData) colorize(g game, u user.User2) {
-// 	b.Color = g.colorByPIDFor(u)(b.Player.ID)
-// }
-
-func (g game) MoveThief(c *gin.Context) (game, error) {
-	log.Debugf("Entering")
-	defer log.Debugf("Exiting")
+func (g game) moveThiefAction(c *gin.Context) (game, error) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
 
 	cp, from, to, cd, err := g.validateMoveThief(c)
 	if err != nil {
@@ -96,7 +34,7 @@ func (g game) MoveThief(c *gin.Context) (game, error) {
 
 	g.Log = append(g.Log, logEntry{
 		"template": moveThiefID,
-		"pid":      cp.ID,
+		"pid":      cp.id,
 		"phase":    g.Phase,
 		"turn":     g.Turn,
 		"card":     cd,
@@ -114,15 +52,15 @@ func (g game) MoveThief(c *gin.Context) (game, error) {
 	// 	"to":       to,
 	// })
 
-	cp.Score += to.card.value()
+	cp.score += to.card.value()
 
 	switch cd.kind {
 	case cdSword:
-		g.swordMove(cp, from, to)
+		g = g.swordMove(cp, from, to, g.toHand())
 	case cdTurban:
-		g.turbanMove(cp, from, to)
+		g = g.turbanMove(cp, from, to, g.toHand())
 	case cdCoins:
-		g.coinMove(cp, from, to)
+		g = g.coinMove(cp, from, to, g.toHand())
 	default:
 		g = g.defaultMove(cp, from, to, g.toHand())
 	}
@@ -133,86 +71,97 @@ func (g game) MoveThief(c *gin.Context) (game, error) {
 	return g, nil
 }
 
-func (g game) swordMove(cp player, from, to area) game {
-	bumpedTo, found := g.bumpedTo(from, to)
-	if found {
-		bumpedPID := to.thief.pid
-		bumpedTo.thief.pid = bumpedPID
-		p2, found := playerByID(bumpedPID, g.players)
-		if found {
-			p2.Score += bumpedTo.card.value() - to.card.value()
-		}
-	}
+func (g game) swordMove(cp player, from, to area, toHand bool) game {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
 
-	// Capture move data before updating state.
-	// m := g.moveThiefMove(*cp, from, to)
-	// g.Animations, g.Log = append(g.Animations, m), append(g.Log, m)
+	p2, _ := playerByID(to.thief.pid, g.players)
+	bumpedTo := g.bumpedTo(from, to)
+	g, _, _ = g.moveThief(to, bumpedTo)
+	p2.score += bumpedTo.card.value() - to.card.value()
+	g.updatePlayer(p2)
 
 	// Move thief
-	from.thief.pid, to.thief.pid = pidNone, cp.ID
-
-	// Bump thief move
-	// bm := g.bumpedThiefMove(*p2, to, *bumpedTo)
-	//	g.Animations, g.Log = append(g.Animations, bm), append(g.Log, bm)
+	g, from, _ = g.moveThief(from, to)
 
 	// Claim Item
-	g = g.claimItem(from, cp)
-	cp.PerformedAction = true
+	g, cp = g.claimItem(from, cp, toHand)
+	if !toHand {
+		cp, _, _ = cp.draw()
+	}
+
+	cp.performedAction = true
 	return g.updatePlayer(cp)
 }
 
-func (g game) turbanMove(cp player, from, to area) (game, player) {
+func (g game) turbanMove(cp player, from, to area, toHand bool) game {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	if g.stepped == 0 {
 		g.stepped = 1
 		g.selectedAreaID = to.areaID
 		g = g.startMoveThief()
 
-		g.defaultMove(cp, from, to, false)
+		g = g.defaultMove(cp, from, to, toHand)
 
 		// Revised defaultMove
-		cp.PerformedAction = false
+		cp.performedAction = false
 		g.Phase = phaseMoveThief
-	} else {
-		g.stepped = 2
-		g.defaultMove(cp, from, to, true)
+		return g
 	}
-	return g, cp
+
+	g.stepped = 2
+	return g.defaultMove(cp, from, to, toHand)
 }
 
-func (g game) coinMove(cp player, from, to area) game {
-	g = g.defaultMove(cp, from, to, true)
+func (g game) coinMove(cp player, from, to area, toHand bool) game {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
+	g = g.defaultMove(cp, from, to, toHand)
 	cp, _, _ = cp.draw()
 	return g.updatePlayer(cp)
 }
 
 func (g game) removeThiefFrom(a area) (game, area) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	a.thief.pid = pidNone
 	return g.updateArea(a), a
 }
 
-func (g game) moveThief(p player, from, to area) (game, area, area) {
+func (g game) moveThief(from, to area) (game, area, area) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
+	pid := from.thief.pid
 	g, from = g.removeThiefFrom(from)
-	to.thief.pid, to.thief.from = p.ID, from.areaID
+	to.thief.pid, to.thief.from = pid, from.areaID
 	return g.updateArea(to), from, to
 }
 
 func (g game) defaultMove(cp player, from, to area, toHand bool) game {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	// Move thief
-	g, from, to = g.moveThief(cp, from, to)
+	g, from, _ = g.moveThief(from, to)
 
 	// Claim Item
-	g = g.claimItem(from, cp)
+	g, cp = g.claimItem(from, cp, toHand)
 	if !toHand {
 		cp, _, _ = cp.draw()
 	}
 
-	cp.PerformedAction = true
+	cp.performedAction = true
 	return g.updatePlayer(cp)
 }
 
 func (g game) validateMoveThief(c *gin.Context) (player, area, area, card, error) {
-	log.Debugf("Entering")
-	defer log.Debugf("Exiting")
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
 
 	cp, err := g.validatePlayerAction(c)
 	if err != nil {
@@ -224,14 +173,16 @@ func (g game) validateMoveThief(c *gin.Context) (player, area, area, card, error
 		return player{}, area{}, area{}, card{}, err
 	}
 
+	log.Debugf("to: %#v", to)
+
 	from, found := g.SelectedThiefArea()
 	if !found {
-		return player{}, area{}, area{}, card{}, errors.Wrap(errValidation, "selected thief area not found")
+		return player{}, area{}, area{}, card{}, errors.WithMessage(errValidation, "selected thief area not found")
 	}
 
 	cd := g.playedCard
 	switch {
-	case from.thief.pid != cp.ID:
+	case from.thief.pid != cp.id:
 		return player{}, area{}, area{}, card{},
 			errors.WithMessage(errValidation, "selected thief of another player")
 	case cd.kind == cdNone:
@@ -251,16 +202,25 @@ func (g game) validateMoveThief(c *gin.Context) (player, area, area, card, error
 	return cp, from, to, cd, nil
 }
 
-func (g game) bumpedTo(from, to area) (area, bool) {
+// bumpedTo assumes bumping a thief by moving thief 'from' area 'to' area is valid.
+// calling validateMoveThief before bumpedTo ensures bumping a thief by moving thief 'from' area 'to' area is valid.
+func (g game) bumpedTo(from, to area) area {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	switch {
 	case from.row > to.row:
-		return g.grid.area(to.row-1, from.column)
+		a, _ := g.grid.area(to.row-1, from.column)
+		return a
 	case from.row < to.row:
-		return g.grid.area(to.row+1, from.column)
+		a, _ := g.grid.area(to.row+1, from.column)
+		return a
 	case from.column > to.column:
-		return g.grid.area(from.row, to.column-1)
+		a, _ := g.grid.area(from.row, to.column-1)
+		return a
 	case from.column < to.column:
-		return g.grid.area(from.row, to.column+1)
+		a, _ := g.grid.area(from.row, to.column+1)
+		return a
 	}
-	return area{}, false
+	return area{}
 }

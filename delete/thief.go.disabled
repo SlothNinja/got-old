@@ -1,6 +1,0 @@
-package main
-
-type thief struct {
-	PID  int    `json:"pid"`
-	From areaID `json:"from"`
-}

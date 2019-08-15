@@ -69,7 +69,7 @@ func (g game) toIDS(places [][]player) [][]string {
 	sids := make([][]string, len(places))
 	for i, ps := range places {
 		for _, p := range ps {
-			sids[i] = append(sids[i], g.UserIDByPID(p.ID))
+			sids[i] = append(sids[i], g.UserIDByPID(p.id))
 		}
 	}
 	return sids
@@ -91,10 +91,10 @@ func (g game) toIDS(places [][]player) [][]string {
 //	for _, p := range g.Players() {
 //		rows += sn.HTML("<tr>")
 //		rows += sn.HTML("<td>%s</td> <td>%d</td> <td>%d</td> <td>%d</td> <td>%d</td>",
-//			g.NameFor(p), p.Score, lampCount(p.Hand...), camelCount(p.Hand...), len(p.Hand))
+//			g.NameFor(p), p.score, lampCount(p.Hand...), camelCount(p.Hand...), len(p.Hand))
 //		rows += sn.HTML("</tr>")
 //	}
-//	s += sn.HTML("<table class='strippedDataTable'><thead><tr><th>Player</th><th>Score</th>")
+//	s += sn.HTML("<table class='strippedDataTable'><thead><tr><th>Player</th><th>score</th>")
 //	s += sn.HTML("<th>Lamps</th><th>Camels</th><th>Cards</th></tr></thead><tbody>")
 //	s += rows
 //	s += sn.HTML("</tbody></table>")
@@ -141,7 +141,7 @@ func (g game) endgameResults(c *gin.Context, ps contest.Places, cs contest.Conte
 			rs[i] = result{
 				Place: place + 1,
 				GLO:   nlo,
-				Score: p.Score,
+				Score: p.score,
 				Name:  g.NameByPID(pid),
 				Inc:   fmt.Sprintf("%+d", inc),
 			}

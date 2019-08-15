@@ -15,6 +15,7 @@ new Vue({
         header: { title: '', id: 0, turn: 0, phase: 0, colorMaps: [], options: {} },
         state: { glog: [], jewels: {} }
       },
+      dev: false,
       tab: 'player-1',
       cu: null,
       cuLoading: true,
@@ -29,10 +30,10 @@ new Vue({
   },
   created () {
       var self = this
-      self.fetchData()
+      self.fetchCurrentUser()
   },
   methods: {
-    fetchData () {
+    fetchCurrentUser () {
       var self = this
       axios.get('/current')
         .then(function (response) {
@@ -40,6 +41,12 @@ new Vue({
           if (cu) {
             self.cu = cu
           }
+                
+          var dev = _.get(response, 'data.dev', false)
+          if (dev) {
+            self.dev = dev
+          }
+
           self.cuLoading = false
         })
         .catch(function () {

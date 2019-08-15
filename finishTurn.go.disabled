@@ -66,11 +66,11 @@ package controller
 // 	var found bool
 // 	switch cp, found = g.currentPlayerFor(u); {
 // 	case !found:
-// 		err = errors.Wrap(errValidation, "current player not found")
+// 		err = errors.WithMessage(errValidation, "current player not found")
 // 	case !g.CPorAdmin(cp.ID, u):
-// 		err = errors.Wrap(errValidation, "only the current player can perform the selected action")
-// 	case !cp.PerformedAction:
-// 		err = errors.Wrap(errValidation, "you have yet to perform an action")
+// 		err = errors.WithMessage(errValidation, "only the current player can perform the selected action")
+// 	case !cp.performedAction:
+// 		err = errors.WithMessage(errValidation, "you have yet to perform an action")
 // 	}
 // 	return
 // }
@@ -142,7 +142,7 @@ package controller
 // 	defer log.Debugf(ctx, "Exiting")
 //
 // 	if cp, err = g.validateFinishTurn(c, u); err == nil && g.Phase != PlaceThieves {
-// 		err = errors.Wrap(errValidation, "wrong phase for selected action")
+// 		err = errors.WithMessage(errValidation, "wrong phase for selected action")
 // 	}
 // 	return
 // }
@@ -150,7 +150,7 @@ package controller
 // func (g *Game) moveThiefNextPlayer(p player.Player) (np *player.Player, found bool) {
 // 	for !g.Players.AllPassed() {
 // 		np, found = g.nextPlayer(p)
-// 		if !found || !np.Passed {
+// 		if !found || !np.passed {
 // 			return
 // 		}
 // 		p = *np
@@ -222,7 +222,7 @@ package controller
 // 	defer log.Debugf(ctx, "Exiting")
 //
 // 	if cp, err = g.validateFinishTurn(ctx, u); err == nil && g.Phase != ClaimItem {
-// 		err = errors.Wrap(errValidation, "wrong phase for selected action")
+// 		err = errors.WithMessage(errValidation, "wrong phase for selected action")
 // 	}
 // 	return
 // }

@@ -12,6 +12,9 @@ import (
 const claimItemID = "claim-item"
 
 func (g game) toHand() bool {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	numThieves := 3
 	if g.TwoThiefVariant {
 		numThieves = 2
@@ -21,27 +24,32 @@ func (g game) toHand() bool {
 }
 
 func (g game) removeCardFrom(a area) (game, area) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	a.card = card{kind: cdNone, facing: cdFaceDown}
 	return g.updateArea(a), a
 }
 
-func (g game) claimItem(a area, cp player) game {
+func (g game) claimItem(a area, cp player, toHand bool) (game, player) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
 	g.Phase = phaseClaimItem
 	cd := a.card
 	g, a = g.removeCardFrom(a)
 
-	toHand := g.toHand()
 	// If first claimed card, place in hand instead of discard pile
 	if toHand {
 		cd.turn(cdFaceUp)
-		cp.Hand = append(cp.Hand, cd)
+		cp.hand = append(cp.hand, cd)
 	} else {
-		cp.DiscardPile = append(cp.DiscardPile, cd)
+		cp.discardPile = append(cp.discardPile, cd)
 	}
 
 	g.Log = append(g.Log, logEntry{
 		"template": claimItemID,
-		"pid":      cp.ID,
+		"pid":      cp.id,
 		"phase":    g.Phase,
 		"turn":     g.Turn,
 		"card":     cd,
@@ -49,11 +57,7 @@ func (g game) claimItem(a area, cp player) game {
 		"toHand":   toHand,
 	})
 
-	g = g.updatePlayer(cp)
-
-	log.Debugf("phase: %s", phaseName(g.Phase))
-
-	return g
+	return g.updatePlayer(cp), cp
 }
 
 // type claimItemMoveData struct {
@@ -87,8 +91,8 @@ func (g game) claimItem(a area, cp player) game {
 // }
 
 func (g game) finalClaim(c *gin.Context) {
-	log.Debugf("Entering")
-	defer log.Debugf("Exiting")
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
 
 	g.Phase = phaseFinalClaim
 	for row := rowA; row <= lastRowFor(g.NumPlayers); row++ {
@@ -100,7 +104,7 @@ func (g game) finalClaim(c *gin.Context) {
 					cd := a.card
 					a.card = newCard(cdNone, cdFaceDown)
 					a.thief.pid = pidNone
-					p.DiscardPile = append([]card{cd}, p.DiscardPile...)
+					p.discardPile = append([]card{cd}, p.discardPile...)
 				}
 			}
 		}

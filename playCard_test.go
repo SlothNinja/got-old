@@ -54,8 +54,8 @@ var _ = Describe("Play Card", func() {
 			cp, found = g.currentPlayerFor(cu)
 			Expect(found).To(BeTrue())
 
-			Expect(cp.Hand).To(HaveLen(hand))
-			Expect(cp.DiscardPile).To(HaveLen(discard))
+			Expect(cp.hand).To(HaveLen(hand))
+			Expect(cp.discardPile).To(HaveLen(discard))
 		})
 	}
 
@@ -86,8 +86,8 @@ var _ = Describe("Play Card", func() {
 		It("should play card", func() {
 			cp, found = g.currentPlayerFor(cu)
 			Expect(found).To(BeTrue())
-			Expect(cp.Hand).To(HaveLen(hand - 1))
-			Expect(cp.DiscardPile).To(HaveLen(discard + 1))
+			Expect(cp.hand).To(HaveLen(hand - 1))
+			Expect(cp.discardPile).To(HaveLen(discard + 1))
 		})
 	}
 
@@ -121,7 +121,7 @@ var _ = Describe("Play Card", func() {
 			cp, found = g.currentPlayerFor(cu)
 			Expect(found).To(BeTrue())
 
-			hand, discard = len(cp.Hand), len(cp.DiscardPile)
+			hand, discard = len(cp.hand), len(cp.discardPile)
 		})
 
 		Context("when there is a valid request", func() {

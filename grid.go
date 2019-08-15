@@ -3,7 +3,10 @@ package main
 import (
 	"encoding/json"
 	"math/rand"
-	"strconv"
+
+	"bitbucket.org/SlothNinja/log"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type grid [][]area
@@ -19,19 +22,6 @@ const (
 	rowG
 )
 
-var rowIDStrings = map[int]string{rowNone: "None", rowA: "A", rowB: "B", rowC: "C",
-	rowD: "D", rowE: "E", rowF: "F", rowG: "G"}
-
-// rowString outputs a row label.
-func rowString(row int) string {
-	return rowIDStrings[row]
-}
-
-// rowIDString outputs an row id.
-func rowIDString(row int) string {
-	return strconv.Itoa(row)
-}
-
 const (
 	colNone int = iota
 	col1
@@ -44,25 +34,11 @@ const (
 	col8
 )
 
-var columnIDStrings = map[int]string{colNone: "None", col1: "1", col2: "2", col3: "3", col4: "4",
-	col5: "5", col6: "6", col7: "7", col8: "8"}
-
-// ColString outputs a column label.
-func ColString(col int) string {
-	return columnIDStrings[col]
-}
-
-// ColIDString outputs an column id.
-func ColIDString(col int) string {
-	return strconv.Itoa(col)
-}
-
-func lastRowFor(numPlayers int) (row int) {
-	row = rowG
+func lastRowFor(numPlayers int) int {
 	if numPlayers == 2 {
-		row = rowF
+		return rowF
 	}
-	return
+	return rowG
 }
 
 func newGrid(numPlayers int) grid {
@@ -85,25 +61,25 @@ func newGrid(numPlayers int) grid {
 }
 
 func (g grid) area(row, col int) (area, bool) {
-	found := row >= 1 && col >= 1 && row <= g.NumRows() && col <= g.NumCols()
+	found := row >= 1 && col >= 1 && row <= g.numRows() && col <= g.numCols()
 	if found {
 		return g[row-1][col-1], true
 	}
 	return area{}, false
 }
 
-func (g grid) NumRows() int {
+func (g grid) numRows() int {
 	return len(g)
 }
 
-func (g grid) NumCols() int {
-	if g.NumRows() > 1 {
+func (g grid) numCols() int {
+	if g.numRows() > 1 {
 		return len(g[0])
 	}
 	return 0
 }
 
-func (g grid) Each(f func(a area) area) {
+func (g grid) each(f func(a area) area) {
 	for row := range g {
 		for col := range g[row] {
 			g[row][col] = f(g[row][col])
@@ -114,20 +90,6 @@ func (g grid) Each(f func(a area) area) {
 func (g game) updateArea(a area) game {
 	g.grid[a.row-1][a.column-1] = a
 	return g
-}
-
-func (g grid) MarshalJSON() ([]byte, error) {
-	type jGrid grid
-	return json.Marshal(jGrid(g))
-}
-
-func (g *grid) UnmarshalJSON(v []byte) error {
-	var unmarshaled [][]area
-	err := json.Unmarshal(v, &unmarshaled)
-	if err == nil {
-		*g = unmarshaled
-	}
-	return err
 }
 
 type area struct {
@@ -212,7 +174,7 @@ func hasArea(as []area, a2 area) bool {
 }
 
 func (a area) hasOtherThief(p player) bool {
-	return a.hasThief() && a.thief.pid != p.ID
+	return a.hasThief() && a.thief.pid != p.id
 }
 
 type thief struct {
@@ -241,4 +203,44 @@ func (t *thief) UnmarshalJSON(bs []byte) error {
 	}
 	t.pid, t.from = j.PID, j.From
 	return nil
+}
+
+func (g game) getArea(c *gin.Context) (area, error) {
+	log.Debugf(msgEnter)
+	defer log.Debugf(msgExit)
+
+	aid, err := g.getAreaID(c)
+	if err != nil {
+		return area{}, err
+	}
+
+	a, _ := g.grid.area(aid.row, aid.column)
+	return a, nil
+}
+
+func (g game) getAreaID(c *gin.Context) (areaID, error) {
+	if g.NumPlayers == 2 {
+		obj := struct {
+			Row    int `json:"row" binding:"min=1,max=6"`
+			Column int `json:"column" binding:"min=1,max=8"`
+		}{}
+
+		err := c.ShouldBindJSON(&obj)
+		if err != nil {
+			return areaID{}, errors.WithMessage(errValidation, err.Error())
+		}
+		return areaID{row: obj.Row, column: obj.Column}, nil
+	}
+
+	obj := struct {
+		Row    int `json:"row" binding:"min=1,max=7"`
+		Column int `json:"column" binding:"min=1,max=8"`
+	}{}
+
+	err := c.ShouldBindJSON(&obj)
+	if err != nil {
+		return areaID{}, errors.WithMessage(errValidation, err.Error())
+	}
+
+	return areaID{row: obj.Row, column: obj.Column}, nil
 }
