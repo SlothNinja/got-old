@@ -37,7 +37,7 @@ func main() {
 	setGinMode()
 	r := newRouter(newCookieStore())
 
-	addRoutes(rootPath, r, server{})
+	addRoutes(rootPath, r, noServer)
 
 	port := getPort()
 

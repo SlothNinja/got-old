@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
+
 	"bitbucket.org/SlothNinja/log"
 	"bitbucket.org/SlothNinja/user"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 const selectThiefID = "select-thief"
@@ -44,7 +45,7 @@ func (g game) SelectThief(c *gin.Context) (game, error) {
 		"area":     a,
 	})
 
-	cu, _ := user.Current(c)
+	cu := user.Current(c)
 	g = g.updateClickablesFor(cu)
 
 	g.Stack = g.Stack.Update()
@@ -57,15 +58,15 @@ func (g game) validateSelectThief(c *gin.Context) (player, area, error) {
 
 	cp, err := g.validatePlayerAction(c)
 	if err != nil {
-		return player{}, area{}, err
+		return noPlayer, noArea, err
 	}
 
 	a, err := g.getArea(c)
 	switch {
 	case err != nil:
-		return player{}, area{}, err
+		return noPlayer, noArea, err
 	case (a.thief.pid != cp.id):
-		return player{}, area{}, errors.WithMessage(errValidation, "selected area does not have one of your thieves")
+		return noPlayer, noArea, fmt.Errorf("selected area does not have one of your thieves: %w", errValidation)
 	default:
 		return cp, a, nil
 	}

@@ -7,9 +7,10 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"errors"
+
 	"bitbucket.org/SlothNinja/user"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -120,7 +121,7 @@ var _ = Describe("area", func() {
 				}
 			},
 			Entry("zero value", entry{
-				area: area{},
+				area: noArea,
 				expected: `{ "row": 0,
 					"column": 0,
 					"card": { "kind": "none", "facing": 0 },
@@ -173,7 +174,7 @@ var _ = Describe("area", func() {
 						"pid": 0,
 						"from": { "row": 0, "column": 0 } },
 					"clickable": false }`),
-				expected:    area{},
+				expected:    noArea,
 				expectedErr: nil,
 			}),
 			Entry("non-zero value", entry{
@@ -223,7 +224,7 @@ var _ = Describe("area", func() {
 				Expect(result).To(Equal(e.expected))
 			},
 			Entry("no thief in area", entry{
-				area:     area{thief: thief{pid: pidNone}},
+				area:     area{thief: thief{pid: noPID}},
 				player:   player{id: 1},
 				expected: false,
 			}),
@@ -419,113 +420,108 @@ var _ = Describe("grid", func() {
 
 		Describe("area", func() {
 
-			var (
-				a     area
-				found bool
-			)
+			var a area
 
 			type entry struct {
 				row, column int
-				found       bool
 			}
 
 			DescribeTable("with",
 
 				func(e entry) {
-					a, found = g.grid.area(e.row, e.column)
-					Expect(found).To(Equal(e.found))
-					if found {
+					a = g.grid.area(e.row, e.column)
+					if a != noArea {
 						Expect(a.row).To(Equal(e.row))
 						Expect(a.column).To(Equal(e.column))
 					}
 				},
-				Entry("area{0,0}", entry{row: 0, column: 0, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 1, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 2, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 3, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 4, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 5, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 6, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 7, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 8, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 9, found: false}),
+				Entry("area{0,0}", entry{row: 0, column: 0}),
+				Entry("area{0,0}", entry{row: 0, column: 1}),
+				Entry("area{0,0}", entry{row: 0, column: 2}),
+				Entry("area{0,0}", entry{row: 0, column: 3}),
+				Entry("area{0,0}", entry{row: 0, column: 4}),
+				Entry("area{0,0}", entry{row: 0, column: 5}),
+				Entry("area{0,0}", entry{row: 0, column: 6}),
+				Entry("area{0,0}", entry{row: 0, column: 7}),
+				Entry("area{0,0}", entry{row: 0, column: 8}),
+				Entry("area{0,0}", entry{row: 0, column: 9}),
 
-				Entry("area{1,0}", entry{row: 1, column: 0, found: false}),
-				Entry("area{1,0}", entry{row: 1, column: 1, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 2, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 3, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 4, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 5, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 6, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 7, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 8, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 9, found: false}),
+				Entry("area{1,0}", entry{row: 1, column: 0}),
+				Entry("area{1,0}", entry{row: 1, column: 1}),
+				Entry("area{1,0}", entry{row: 1, column: 2}),
+				Entry("area{1,0}", entry{row: 1, column: 3}),
+				Entry("area{1,0}", entry{row: 1, column: 4}),
+				Entry("area{1,0}", entry{row: 1, column: 5}),
+				Entry("area{1,0}", entry{row: 1, column: 6}),
+				Entry("area{1,0}", entry{row: 1, column: 7}),
+				Entry("area{1,0}", entry{row: 1, column: 8}),
+				Entry("area{1,0}", entry{row: 1, column: 9}),
 
-				Entry("area{2,0}", entry{row: 2, column: 0, found: false}),
-				Entry("area{2,0}", entry{row: 2, column: 1, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 2, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 3, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 4, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 5, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 6, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 7, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 8, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 9, found: false}),
+				Entry("area{2,0}", entry{row: 2, column: 0}),
+				Entry("area{2,0}", entry{row: 2, column: 1}),
+				Entry("area{2,0}", entry{row: 2, column: 2}),
+				Entry("area{2,0}", entry{row: 2, column: 3}),
+				Entry("area{2,0}", entry{row: 2, column: 4}),
+				Entry("area{2,0}", entry{row: 2, column: 5}),
+				Entry("area{2,0}", entry{row: 2, column: 6}),
+				Entry("area{2,0}", entry{row: 2, column: 7}),
+				Entry("area{2,0}", entry{row: 2, column: 8}),
+				Entry("area{2,0}", entry{row: 2, column: 9}),
 
-				Entry("area{3,0}", entry{row: 3, column: 0, found: false}),
-				Entry("area{3,0}", entry{row: 3, column: 1, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 2, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 3, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 4, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 5, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 6, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 7, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 8, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 9, found: false}),
+				Entry("area{3,0}", entry{row: 3, column: 0}),
+				Entry("area{3,0}", entry{row: 3, column: 1}),
+				Entry("area{3,0}", entry{row: 3, column: 2}),
+				Entry("area{3,0}", entry{row: 3, column: 3}),
+				Entry("area{3,0}", entry{row: 3, column: 4}),
+				Entry("area{3,0}", entry{row: 3, column: 5}),
+				Entry("area{3,0}", entry{row: 3, column: 6}),
+				Entry("area{3,0}", entry{row: 3, column: 7}),
+				Entry("area{3,0}", entry{row: 3, column: 8}),
+				Entry("area{3,0}", entry{row: 3, column: 9}),
 
-				Entry("area{4,0}", entry{row: 4, column: 0, found: false}),
-				Entry("area{4,0}", entry{row: 4, column: 1, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 2, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 3, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 4, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 5, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 6, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 7, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 8, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 9, found: false}),
+				Entry("area{4,0}", entry{row: 4, column: 0}),
+				Entry("area{4,0}", entry{row: 4, column: 1}),
+				Entry("area{4,0}", entry{row: 4, column: 2}),
+				Entry("area{4,0}", entry{row: 4, column: 3}),
+				Entry("area{4,0}", entry{row: 4, column: 4}),
+				Entry("area{4,0}", entry{row: 4, column: 5}),
+				Entry("area{4,0}", entry{row: 4, column: 6}),
+				Entry("area{4,0}", entry{row: 4, column: 7}),
+				Entry("area{4,0}", entry{row: 4, column: 8}),
+				Entry("area{4,0}", entry{row: 4, column: 9}),
 
-				Entry("area{5,0}", entry{row: 5, column: 0, found: false}),
-				Entry("area{5,0}", entry{row: 5, column: 1, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 2, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 3, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 4, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 5, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 6, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 7, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 8, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 9, found: false}),
+				Entry("area{5,0}", entry{row: 5, column: 0}),
+				Entry("area{5,0}", entry{row: 5, column: 1}),
+				Entry("area{5,0}", entry{row: 5, column: 2}),
+				Entry("area{5,0}", entry{row: 5, column: 3}),
+				Entry("area{5,0}", entry{row: 5, column: 4}),
+				Entry("area{5,0}", entry{row: 5, column: 5}),
+				Entry("area{5,0}", entry{row: 5, column: 6}),
+				Entry("area{5,0}", entry{row: 5, column: 7}),
+				Entry("area{5,0}", entry{row: 5, column: 8}),
+				Entry("area{5,0}", entry{row: 5, column: 9}),
 
-				Entry("area{6,0}", entry{row: 6, column: 0, found: false}),
-				Entry("area{6,0}", entry{row: 6, column: 1, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 2, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 3, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 4, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 5, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 6, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 7, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 8, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 9, found: false}),
+				Entry("area{6,0}", entry{row: 6, column: 0}),
+				Entry("area{6,0}", entry{row: 6, column: 1}),
+				Entry("area{6,0}", entry{row: 6, column: 2}),
+				Entry("area{6,0}", entry{row: 6, column: 3}),
+				Entry("area{6,0}", entry{row: 6, column: 4}),
+				Entry("area{6,0}", entry{row: 6, column: 5}),
+				Entry("area{6,0}", entry{row: 6, column: 6}),
+				Entry("area{6,0}", entry{row: 6, column: 7}),
+				Entry("area{6,0}", entry{row: 6, column: 8}),
+				Entry("area{6,0}", entry{row: 6, column: 9}),
 
-				Entry("area{7,0}", entry{row: 7, column: 0, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 1, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 2, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 3, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 4, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 5, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 6, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 7, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 8, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 9, found: false}),
+				Entry("area{7,0}", entry{row: 7, column: 0}),
+				Entry("area{7,0}", entry{row: 7, column: 1}),
+				Entry("area{7,0}", entry{row: 7, column: 2}),
+				Entry("area{7,0}", entry{row: 7, column: 3}),
+				Entry("area{7,0}", entry{row: 7, column: 4}),
+				Entry("area{7,0}", entry{row: 7, column: 5}),
+				Entry("area{7,0}", entry{row: 7, column: 6}),
+				Entry("area{7,0}", entry{row: 7, column: 7}),
+				Entry("area{7,0}", entry{row: 7, column: 8}),
+				Entry("area{7,0}", entry{row: 7, column: 9}),
 			)
 		})
 
@@ -542,7 +538,7 @@ var _ = Describe("grid", func() {
 					c.Request.Header.Set("Content-Type", "application/json")
 					a, err = g.getArea(c)
 					if expectedErr != nil {
-						Expect(errors.Cause(err)).To(Equal(errValidation))
+						Expect(errors.Is(err, errValidation)).To(BeTrue())
 					} else {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(a.areaID).To(Equal(expectedAreaID))
@@ -650,7 +646,7 @@ var _ = Describe("grid", func() {
 					c.Request.Header.Set("Content-Type", "application/json")
 					aid, err = g.getAreaID(c)
 					if expectedErr != nil {
-						Expect(errors.Cause(err)).To(Equal(errValidation))
+						Expect(errors.Is(err, errValidation)).To(BeTrue())
 					} else {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(aid).To(Equal(expectedAreaID))
@@ -770,124 +766,119 @@ var _ = Describe("grid", func() {
 
 		Describe("area", func() {
 
-			var (
-				a     area
-				found bool
-			)
+			var a area
 
 			type entry struct {
 				row, column int
-				found       bool
 			}
 
 			DescribeTable("with",
 
 				func(e entry) {
-					a, found = g.grid.area(e.row, e.column)
-					Expect(found).To(Equal(e.found))
-					if found {
+					a = g.grid.area(e.row, e.column)
+					if a != noArea {
 						Expect(a.row).To(Equal(e.row))
 						Expect(a.column).To(Equal(e.column))
 					}
 				},
-				Entry("area{0,0}", entry{row: 0, column: 0, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 1, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 2, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 3, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 4, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 5, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 6, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 7, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 8, found: false}),
-				Entry("area{0,0}", entry{row: 0, column: 9, found: false}),
+				Entry("area{0,0}", entry{row: 0, column: 0}),
+				Entry("area{0,0}", entry{row: 0, column: 1}),
+				Entry("area{0,0}", entry{row: 0, column: 2}),
+				Entry("area{0,0}", entry{row: 0, column: 3}),
+				Entry("area{0,0}", entry{row: 0, column: 4}),
+				Entry("area{0,0}", entry{row: 0, column: 5}),
+				Entry("area{0,0}", entry{row: 0, column: 6}),
+				Entry("area{0,0}", entry{row: 0, column: 7}),
+				Entry("area{0,0}", entry{row: 0, column: 8}),
+				Entry("area{0,0}", entry{row: 0, column: 9}),
 
-				Entry("area{1,0}", entry{row: 1, column: 0, found: false}),
-				Entry("area{1,0}", entry{row: 1, column: 1, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 2, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 3, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 4, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 5, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 6, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 7, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 8, found: true}),
-				Entry("area{1,0}", entry{row: 1, column: 9, found: false}),
+				Entry("area{1,0}", entry{row: 1, column: 0}),
+				Entry("area{1,0}", entry{row: 1, column: 1}),
+				Entry("area{1,0}", entry{row: 1, column: 2}),
+				Entry("area{1,0}", entry{row: 1, column: 3}),
+				Entry("area{1,0}", entry{row: 1, column: 4}),
+				Entry("area{1,0}", entry{row: 1, column: 5}),
+				Entry("area{1,0}", entry{row: 1, column: 6}),
+				Entry("area{1,0}", entry{row: 1, column: 7}),
+				Entry("area{1,0}", entry{row: 1, column: 8}),
+				Entry("area{1,0}", entry{row: 1, column: 9}),
 
-				Entry("area{2,0}", entry{row: 2, column: 0, found: false}),
-				Entry("area{2,0}", entry{row: 2, column: 1, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 2, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 3, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 4, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 5, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 6, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 7, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 8, found: true}),
-				Entry("area{2,0}", entry{row: 2, column: 9, found: false}),
+				Entry("area{2,0}", entry{row: 2, column: 0}),
+				Entry("area{2,0}", entry{row: 2, column: 1}),
+				Entry("area{2,0}", entry{row: 2, column: 2}),
+				Entry("area{2,0}", entry{row: 2, column: 3}),
+				Entry("area{2,0}", entry{row: 2, column: 4}),
+				Entry("area{2,0}", entry{row: 2, column: 5}),
+				Entry("area{2,0}", entry{row: 2, column: 6}),
+				Entry("area{2,0}", entry{row: 2, column: 7}),
+				Entry("area{2,0}", entry{row: 2, column: 8}),
+				Entry("area{2,0}", entry{row: 2, column: 9}),
 
-				Entry("area{3,0}", entry{row: 3, column: 0, found: false}),
-				Entry("area{3,0}", entry{row: 3, column: 1, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 2, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 3, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 4, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 5, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 6, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 7, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 8, found: true}),
-				Entry("area{3,0}", entry{row: 3, column: 9, found: false}),
+				Entry("area{3,0}", entry{row: 3, column: 0}),
+				Entry("area{3,0}", entry{row: 3, column: 1}),
+				Entry("area{3,0}", entry{row: 3, column: 2}),
+				Entry("area{3,0}", entry{row: 3, column: 3}),
+				Entry("area{3,0}", entry{row: 3, column: 4}),
+				Entry("area{3,0}", entry{row: 3, column: 5}),
+				Entry("area{3,0}", entry{row: 3, column: 6}),
+				Entry("area{3,0}", entry{row: 3, column: 7}),
+				Entry("area{3,0}", entry{row: 3, column: 8}),
+				Entry("area{3,0}", entry{row: 3, column: 9}),
 
-				Entry("area{4,0}", entry{row: 4, column: 0, found: false}),
-				Entry("area{4,0}", entry{row: 4, column: 1, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 2, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 3, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 4, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 5, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 6, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 7, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 8, found: true}),
-				Entry("area{4,0}", entry{row: 4, column: 9, found: false}),
+				Entry("area{4,0}", entry{row: 4, column: 0}),
+				Entry("area{4,0}", entry{row: 4, column: 1}),
+				Entry("area{4,0}", entry{row: 4, column: 2}),
+				Entry("area{4,0}", entry{row: 4, column: 3}),
+				Entry("area{4,0}", entry{row: 4, column: 4}),
+				Entry("area{4,0}", entry{row: 4, column: 5}),
+				Entry("area{4,0}", entry{row: 4, column: 6}),
+				Entry("area{4,0}", entry{row: 4, column: 7}),
+				Entry("area{4,0}", entry{row: 4, column: 8}),
+				Entry("area{4,0}", entry{row: 4, column: 9}),
 
-				Entry("area{5,0}", entry{row: 5, column: 0, found: false}),
-				Entry("area{5,0}", entry{row: 5, column: 1, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 2, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 3, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 4, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 5, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 6, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 7, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 8, found: true}),
-				Entry("area{5,0}", entry{row: 5, column: 9, found: false}),
+				Entry("area{5,0}", entry{row: 5, column: 0}),
+				Entry("area{5,0}", entry{row: 5, column: 1}),
+				Entry("area{5,0}", entry{row: 5, column: 2}),
+				Entry("area{5,0}", entry{row: 5, column: 3}),
+				Entry("area{5,0}", entry{row: 5, column: 4}),
+				Entry("area{5,0}", entry{row: 5, column: 5}),
+				Entry("area{5,0}", entry{row: 5, column: 6}),
+				Entry("area{5,0}", entry{row: 5, column: 7}),
+				Entry("area{5,0}", entry{row: 5, column: 8}),
+				Entry("area{5,0}", entry{row: 5, column: 9}),
 
-				Entry("area{6,0}", entry{row: 6, column: 0, found: false}),
-				Entry("area{6,0}", entry{row: 6, column: 1, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 2, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 3, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 4, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 5, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 6, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 7, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 8, found: true}),
-				Entry("area{6,0}", entry{row: 6, column: 9, found: false}),
+				Entry("area{6,0}", entry{row: 6, column: 0}),
+				Entry("area{6,0}", entry{row: 6, column: 1}),
+				Entry("area{6,0}", entry{row: 6, column: 2}),
+				Entry("area{6,0}", entry{row: 6, column: 3}),
+				Entry("area{6,0}", entry{row: 6, column: 4}),
+				Entry("area{6,0}", entry{row: 6, column: 5}),
+				Entry("area{6,0}", entry{row: 6, column: 6}),
+				Entry("area{6,0}", entry{row: 6, column: 7}),
+				Entry("area{6,0}", entry{row: 6, column: 8}),
+				Entry("area{6,0}", entry{row: 6, column: 9}),
 
-				Entry("area{7,0}", entry{row: 7, column: 0, found: false}),
-				Entry("area{7,0}", entry{row: 7, column: 1, found: true}),
-				Entry("area{7,0}", entry{row: 7, column: 2, found: true}),
-				Entry("area{7,0}", entry{row: 7, column: 3, found: true}),
-				Entry("area{7,0}", entry{row: 7, column: 4, found: true}),
-				Entry("area{7,0}", entry{row: 7, column: 5, found: true}),
-				Entry("area{7,0}", entry{row: 7, column: 6, found: true}),
-				Entry("area{7,0}", entry{row: 7, column: 7, found: true}),
-				Entry("area{7,0}", entry{row: 7, column: 8, found: true}),
-				Entry("area{7,0}", entry{row: 7, column: 9, found: false}),
+				Entry("area{7,0}", entry{row: 7, column: 0}),
+				Entry("area{7,0}", entry{row: 7, column: 1}),
+				Entry("area{7,0}", entry{row: 7, column: 2}),
+				Entry("area{7,0}", entry{row: 7, column: 3}),
+				Entry("area{7,0}", entry{row: 7, column: 4}),
+				Entry("area{7,0}", entry{row: 7, column: 5}),
+				Entry("area{7,0}", entry{row: 7, column: 6}),
+				Entry("area{7,0}", entry{row: 7, column: 7}),
+				Entry("area{7,0}", entry{row: 7, column: 8}),
+				Entry("area{7,0}", entry{row: 7, column: 9}),
 
-				Entry("area{8,0}", entry{row: 8, column: 0, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 1, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 2, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 3, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 4, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 5, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 6, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 7, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 8, found: false}),
-				Entry("area{8,0}", entry{row: 8, column: 9, found: false}),
+				Entry("area{8,0}", entry{row: 8, column: 0}),
+				Entry("area{8,0}", entry{row: 8, column: 1}),
+				Entry("area{8,0}", entry{row: 8, column: 2}),
+				Entry("area{8,0}", entry{row: 8, column: 3}),
+				Entry("area{8,0}", entry{row: 8, column: 4}),
+				Entry("area{8,0}", entry{row: 8, column: 5}),
+				Entry("area{8,0}", entry{row: 8, column: 6}),
+				Entry("area{8,0}", entry{row: 8, column: 7}),
+				Entry("area{8,0}", entry{row: 8, column: 8}),
+				Entry("area{8,0}", entry{row: 8, column: 9}),
 			)
 		})
 
@@ -902,7 +893,7 @@ var _ = Describe("grid", func() {
 				c.Request.Header.Set("Content-Type", "application/json")
 				aid, err = g.getAreaID(c)
 				if expectedErr != nil {
-					Expect(errors.Cause(err)).To(Equal(errValidation))
+					Expect(errors.Is(err, errValidation)).To(BeTrue())
 				} else {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(aid).To(Equal(expectedAreaID))

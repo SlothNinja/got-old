@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
 )
 
 var _ = Describe("card", func() {
@@ -185,9 +185,9 @@ var _ = Describe("card", func() {
 			Expect(turn(c.Direction, c.Cards)).To(Equal(c.Expected))
 		},
 		Entry("Empty", turnCase{
-			Cards:     []card{},
+			Cards:     noCards,
 			Direction: cdFaceUp,
-			Expected:  []card{},
+			Expected:  noCards,
 		}),
 		Entry("FaceUp One", turnCase{
 			Cards:     []card{newCard(cdCamel, cdFaceDown)},
@@ -329,7 +329,7 @@ var _ = Describe("card", func() {
 			}
 		},
 		Entry("No Cards", findIndexCase{
-			cards: []card{},
+			cards: noCards,
 			test:  func(cd card) bool { return true },
 			index: -1,
 			found: false,
@@ -387,9 +387,9 @@ var _ = Describe("card", func() {
 					"/"+playCardPath,
 					strings.NewReader(`{ "kind": "camel" }`),
 				),
-				cards: []card{},
+				cards: noCards,
 				index: -1,
-				err:   errors.WithMessagef(errValidation, "card not found for %q", cdCamel),
+				err:   fmt.Errorf("card not found for %q: %w", cdCamel, errValidation),
 			}),
 			Entry("Found", getIndexCase{
 				req: httptest.NewRequest(
@@ -409,7 +409,7 @@ var _ = Describe("card", func() {
 				),
 				cards: []card{newCard(cdLamp, cdFaceDown), newCard(cdCamel, cdFaceDown), newCard(cdJewels, cdFaceDown)},
 				index: -1,
-				err:   errors.WithMessagef(errValidation, "card not found for %q", cdCoins),
+				err:   fmt.Errorf("card not found for %q: %w", cdCoins, errValidation),
 			}),
 			Entry("Invalid Context", getIndexCase{
 				req: httptest.NewRequest(
@@ -419,7 +419,7 @@ var _ = Describe("card", func() {
 				),
 				cards: []card{newCard(cdLamp, cdFaceDown), newCard(cdCamel, cdFaceDown), newCard(cdJewels, cdFaceDown)},
 				index: -1,
-				err:   errors.WithMessage(errValidation, "unable to get card index from context"),
+				err:   fmt.Errorf("unable to get card index from context: %w", errValidation),
 			}),
 		)
 	})

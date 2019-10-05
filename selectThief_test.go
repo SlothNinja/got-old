@@ -19,7 +19,6 @@ var _ = Describe("Select Thief", func() {
 		resp       *httptest.ResponseRecorder
 		g          game
 		cu, u1, u2 user.User2
-		found      bool
 		err        error
 	)
 
@@ -68,7 +67,7 @@ var _ = Describe("Select Thief", func() {
 	Context("when no current user", func() {
 		It("should indicate there is no current user", func() {
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unable to find current user"))
+			Expect(err.Error()).To(ContainSubstring("only the current player can perform the selected action"))
 		})
 
 		Context("when there is a valid request", func() {
@@ -103,13 +102,9 @@ var _ = Describe("Select Thief", func() {
 			}
 			user.WithCurrent(c, cu)
 
-			cp, found = g.currentPlayerFor(cu)
-			Expect(found).To(BeTrue())
-
-			a, found = g.grid.area(1, 1)
-			Expect(found).To(BeTrue())
-
-			g, a = g.placeThiefIn(cp, a)
+			cp = g.currentPlayerFor(cu)
+			a = g.grid.area(1, 1)
+			g.grid, a = g.grid.placeThiefIn(cp, a)
 		})
 
 		Context("when there is a valid request", func() {

@@ -11,7 +11,9 @@ import (
 
 var defaultColors = []color.Color{color.Yellow, color.Purple, color.Green, color.Black}
 
-const pidNone = 0
+const noPID = 0
+
+var noPlayer = player{}
 
 // Player represents one of the players of the game.
 type player struct {
@@ -204,13 +206,13 @@ func playerFindIndex(p player, ps []player) (int, bool) {
 	return -1, false
 }
 
-func playerByID(pid int, ps []player) (player, bool) {
+func playerByID(pid int, ps []player) player {
 	for _, p := range ps {
 		if p.id == pid {
-			return p, true
+			return p
 		}
 	}
-	return player{}, false
+	return noPlayer
 }
 
 // shuffle randomizes the order of players.
@@ -243,7 +245,7 @@ func playerByIndex(numPlayers int, ps []player) player {
 // }
 
 func (p player) hideCards() player {
-	p.hand, p.discardPile, p.drawPile = []card{}, []card{}, []card{}
+	p.hand, p.discardPile, p.drawPile = noCards, noCards, noCards
 	return p
 }
 

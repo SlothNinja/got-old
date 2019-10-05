@@ -77,3 +77,5 @@ replace bitbucket.org/SlothNinja/chat v0.0.0 => /Volumes/Janice/projects/chat
 replace bitbucket.org/SlothNinja/user v0.0.8 => /Volumes/Janice/projects/user
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
+
+go 1.13

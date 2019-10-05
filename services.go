@@ -192,27 +192,24 @@ func newUserAction(prefix string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
-			log.Errorf("unable to find current user")
-			c.JSON(http.StatusOK, gin.H{"dev": isDev(), "message": "unable to find current user"})
+		cu := user.Current(c)
+		if cu == user.None {
+			jerr(c, errUserNotFound)
 			return
 		}
 
 		if !cu.Admin {
-			jsonMsg(c, "You already have an account.")
+			jerr(c, fmt.Errorf("you already have an account: %w", errValidation))
 			return
 		}
 
 		s := sessions.Default(c)
 		token, ok := user.SessionTokenFrom(s)
 		if !ok {
-			log.Errorf("Missing SessionToken")
-			jsonMsg(c, "Unexpected error. Try again.")
+			jerr(c, errMissingToken)
 			return
 		}
 
-		log.Debugf("token: %#v", token)
 		u := user.New2(token.ID)
 		u.Name = user.Name(token.Email)
 		u.Email = token.Email
@@ -228,9 +225,10 @@ func current(prefix string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
-			c.JSON(http.StatusOK, gin.H{"dev": isDev(), "message": "unable to find current user"})
+		cu := user.Current(c)
+		if cu == user.None {
+			c.JSON(http.StatusOK, gin.H{"dev": isDev(), "message": errUserNotFound.Error()})
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"dev": isDev(), "cu": cu})
@@ -279,9 +277,9 @@ func createUser(prefix string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
-			c.JSON(http.StatusOK, gin.H{"message": "unable to find current user"})
+		cu := user.Current(c)
+		if cu == user.None {
+			jerr(c, errUserNotFound)
 			return
 		}
 
@@ -464,9 +462,9 @@ func update(prefix string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
-			jsonMsg(c, "Must be logged-in to edit account.")
+		cu := user.Current(c)
+		if cu == user.None {
+			jerr(c, errUserNotFound)
 			return
 		}
 

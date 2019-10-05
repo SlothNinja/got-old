@@ -61,8 +61,8 @@ func (s server) jsonIndexAction() gin.HandlerFunc {
 			return
 		}
 
-		cu, found := user.Current(c)
-		if !found {
+		cu := user.Current(c)
+		if cu == user.None {
 			jerr(c, errUserNotFound)
 			return
 		}

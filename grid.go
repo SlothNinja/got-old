@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
 
 	"bitbucket.org/SlothNinja/log"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 type grid [][]area
@@ -60,12 +60,11 @@ func newGrid(numPlayers int) grid {
 	return grid
 }
 
-func (g grid) area(row, col int) (area, bool) {
-	found := row >= 1 && col >= 1 && row <= g.numRows() && col <= g.numCols()
-	if found {
-		return g[row-1][col-1], true
+func (g grid) area(row, col int) area {
+	if row < rowA || col < col1 || row > g.numRows() || col > g.numCols() {
+		return noArea
 	}
-	return area{}, false
+	return g[row-1][col-1]
 }
 
 func (g grid) numRows() int {
@@ -87,8 +86,12 @@ func (g grid) each(f func(a area) area) {
 	}
 }
 
-func (g game) updateArea(a area) game {
-	g.grid[a.row-1][a.column-1] = a
+func (g grid) updateArea(a area) grid {
+	if a.row < rowA || a.column < col1 || a.row > g.numRows() || a.column > g.numCols() {
+		log.Warningf("area: %#v not in grid", a)
+		return g
+	}
+	g[a.row-1][a.column-1] = a
 	return g
 }
 
@@ -97,6 +100,16 @@ type area struct {
 	thief     thief
 	card      card
 	clickable bool
+}
+
+var noArea = area{}
+
+func (a area) empty() area {
+	return area{areaID: a.areaID}
+}
+
+func (a area) isEmpty() bool {
+	return !a.hasThief() && !a.hasCard()
 }
 
 type jArea struct {
@@ -131,6 +144,9 @@ type areaID struct {
 	column int
 }
 
+var noAreaID = areaID{}
+var noAreaIDS = []areaID{}
+
 type jAreaID struct {
 	Row    int `json:"row" binding:"min=1,max=8"`
 	Column int `json:"column" binding:"min=1,max=8"`
@@ -156,7 +172,7 @@ func newArea(row, col int, card card) area {
 }
 
 func (a area) hasThief() bool {
-	return a.thief.pid != pidNone
+	return a.thief.pid != noPID
 }
 
 func (a area) hasCard() bool {
@@ -174,6 +190,11 @@ func hasArea(as []area, a2 area) bool {
 }
 
 func (a area) hasOtherThief(p player) bool {
+	log.Warningf("a.hasThief: %v", a.hasThief())
+	log.Warningf("a.thief.pid: %v", a.thief.pid)
+	log.Warningf("p.id: %v", p.id)
+	log.Warningf("p: %#v", p)
+	log.Warningf("a: %#v", a)
 	return a.hasThief() && a.thief.pid != p.id
 }
 
@@ -211,11 +232,10 @@ func (g game) getArea(c *gin.Context) (area, error) {
 
 	aid, err := g.getAreaID(c)
 	if err != nil {
-		return area{}, err
+		return noArea, err
 	}
 
-	a, _ := g.grid.area(aid.row, aid.column)
-	return a, nil
+	return g.grid.area(aid.row, aid.column), nil
 }
 
 func (g game) getAreaID(c *gin.Context) (areaID, error) {
@@ -227,7 +247,7 @@ func (g game) getAreaID(c *gin.Context) (areaID, error) {
 
 		err := c.ShouldBindJSON(&obj)
 		if err != nil {
-			return areaID{}, errors.WithMessage(errValidation, err.Error())
+			return noAreaID, fmt.Errorf("%s: %w", err, errValidation)
 		}
 		return areaID{row: obj.Row, column: obj.Column}, nil
 	}
@@ -239,7 +259,7 @@ func (g game) getAreaID(c *gin.Context) (areaID, error) {
 
 	err := c.ShouldBindJSON(&obj)
 	if err != nil {
-		return areaID{}, errors.WithMessage(errValidation, err.Error())
+		return noAreaID, fmt.Errorf("%s: %w", err, errValidation)
 	}
 
 	return areaID{row: obj.Row, column: obj.Column}, nil

@@ -51,7 +51,7 @@ var _ = Describe("s.placeThief", func() {
 	Context("when no current user", func() {
 		It("should indicate there is no current user", func() {
 			Expect(resp.Code).To(Equal(http.StatusOK))
-			Expect(resp.Body.String()).To(ContainSubstring("unable to find current user"))
+			Expect(resp.Body.String()).To(ContainSubstring("only the current player can perform the selected action"))
 		})
 	})
 })
@@ -63,7 +63,6 @@ var _ = Describe("g.placeThief", func() {
 		a          area
 		g          game
 		cu, u1, u2 user.User2
-		found      bool
 		err        error
 	)
 
@@ -82,7 +81,7 @@ var _ = Describe("g.placeThief", func() {
 	Context("when no current user", func() {
 		It("should indicate there is no current user", func() {
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unable to find current user"))
+			Expect(err.Error()).To(ContainSubstring("only the current player can perform the selected action"))
 		})
 
 		Describe("when there is a valid request", func() {
@@ -97,8 +96,7 @@ var _ = Describe("g.placeThief", func() {
 			})
 
 			It("should not place thief", func() {
-				a, found = g.grid.area(1, 1)
-				Expect(found).To(BeTrue())
+				a = g.grid.area(1, 1)
 				Expect(a.hasThief()).To(BeFalse())
 			})
 
@@ -115,8 +113,7 @@ var _ = Describe("g.placeThief", func() {
 			}
 			user.WithCurrent(c, cu)
 
-			cp, found = g.currentPlayerFor(cu)
-			Expect(found).To(BeTrue())
+			cp = g.currentPlayerFor(cu)
 		})
 
 		Describe("when there is a valid request", func() {
@@ -131,17 +128,15 @@ var _ = Describe("g.placeThief", func() {
 			})
 
 			It("should place thief", func() {
-				a, found = g.grid.area(1, 1)
-				Expect(found).To(BeTrue())
+				a = g.grid.area(1, 1)
 				Expect(a.thief.pid).Should(Equal(cp.id))
 			})
 
 			Context("when thief already in selected area", func() {
 				BeforeEach(func() {
-					a, found = g.grid.area(1, 1)
-					Expect(found).To(BeTrue())
+					a = g.grid.area(1, 1)
 
-					g, a = g.placeThiefIn(cp, a)
+					g.grid, a = g.grid.placeThiefIn(cp, a)
 				})
 
 				It("should indicate area already has thief", func() {
@@ -151,10 +146,9 @@ var _ = Describe("g.placeThief", func() {
 
 			Context("when no card in selected area", func() {
 				BeforeEach(func() {
-					a, found = g.grid.area(1, 1)
-					Expect(found).To(BeTrue())
+					a = g.grid.area(1, 1)
 
-					g, a = g.removeCardFrom(a)
+					g.grid, a = g.grid.removeCardFrom(a)
 				})
 
 				It("should indicate area has no card", func() {
@@ -191,8 +185,7 @@ var _ = Describe("g.placeThief", func() {
 			})
 
 			It("should not place thief", func() {
-				a, found = g.grid.area(1, 1)
-				Expect(found).To(BeTrue())
+				a = g.grid.area(1, 1)
 				Expect(a.hasThief()).To(BeFalse())
 			})
 		})
@@ -206,12 +199,10 @@ var _ = Describe("g.placeThief", func() {
 
 			if g.CPUserIndices[0] == 1 {
 				user.WithCurrent(c, u2)
-				cp, found = g.currentPlayerFor(u2)
-				Expect(found).To(BeFalse())
+				cp = g.currentPlayerFor(u2)
 			} else {
 				user.WithCurrent(c, u1)
-				cp, found = g.currentPlayerFor(u1)
-				Expect(found).To(BeFalse())
+				cp = g.currentPlayerFor(u1)
 			}
 		})
 
@@ -227,12 +218,11 @@ var _ = Describe("g.placeThief", func() {
 			})
 
 			It("should indicate current player not found", func() {
-				Expect(err.Error()).To(ContainSubstring("current player not found"))
+				Expect(err.Error()).To(ContainSubstring("only the current player can perform the selected action"))
 			})
 
 			It("should not place thief", func() {
-				a, found = g.grid.area(1, 1)
-				Expect(found).To(BeTrue())
+				a = g.grid.area(1, 1)
 				Expect(a.hasThief()).To(BeFalse())
 			})
 		})

@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"bitbucket.org/SlothNinja/log"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 // card is a playing card used to form grid, player's hand, and player's deck.
@@ -14,6 +14,11 @@ type card struct {
 	kind   cdKind
 	facing cdFacing
 }
+
+var (
+	noCard  = card{}
+	noCards = []card{}
+)
 
 type jCard struct {
 	Kind   cdKind   `json:"kind"`
@@ -183,12 +188,12 @@ func getIndex(c *gin.Context, cs []card) (int, error) {
 	obj := new(card)
 	err := c.ShouldBindJSON(obj)
 	if err != nil {
-		return -1, errors.WithMessage(errValidation, "unable to get card index from context")
+		return -1, fmt.Errorf("unable to get card index from context: %w", errValidation)
 	}
 
 	index, found := findIndexFor(cs, func(c card) bool { return c.kind == obj.kind })
 	if !found {
-		return -1, errors.WithMessagef(errValidation, "card not found for %q", obj.kind)
+		return -1, fmt.Errorf("card not found for %q: %w", obj.kind, errValidation)
 	}
 	return index, nil
 }

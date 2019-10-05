@@ -51,7 +51,7 @@ var _ = Describe("s.placeThief", func() {
 	Context("when no current user", func() {
 		It("should indicate there is no current user", func() {
 			Expect(resp.Code).To(Equal(http.StatusOK))
-			Expect(resp.Body.String()).To(ContainSubstring("unable to find current user"))
+			Expect(resp.Body.String()).To(ContainSubstring("only the current player can perform the selected action"))
 		})
 	})
 })
@@ -63,7 +63,6 @@ var _ = Describe("g.moveThief", func() {
 		resp       *httptest.ResponseRecorder
 		g          game
 		cu, u1, u2 user.User2
-		found      bool
 		from, to   area
 		err        error
 	)
@@ -107,15 +106,12 @@ var _ = Describe("g.moveThief", func() {
 		})
 
 		It("should move thief", func() {
-			cp, found = g.currentPlayerFor(cu)
-			Expect(found).To(BeTrue())
+			cp = g.currentPlayerFor(cu)
 
-			from, found = g.grid.area(from.row, from.column)
-			Expect(found).To(BeTrue())
+			from = g.grid.area(from.row, from.column)
 			Expect(from.thief.pid).To(BeZero())
 
-			to, found = g.grid.area(to.row, to.column)
-			Expect(found).To(BeTrue())
+			to = g.grid.area(to.row, to.column)
 			Expect(to.thief.pid).To(Equal(cp.id))
 		})
 	}
@@ -132,22 +128,20 @@ var _ = Describe("g.moveThief", func() {
 				strings.NewReader(`{ "row": 2, "column": 3 }`),
 			)
 
-			from, found = g.grid.area(1, 1)
-			Expect(found).To(BeTrue())
+			from = g.grid.area(1, 1)
 
 			from.thief.pid = 1
-			g = g.updateArea(from)
+			g.grid = g.grid.updateArea(from)
 
 			g.selectedAreaID = from.areaID
 
-			to, found = g.grid.area(2, 3)
-			Expect(found).To(BeTrue())
+			to = g.grid.area(2, 3)
 
 		})
 
 		It("should indicate there is no current user", func() {
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unable to find current user"))
+			Expect(err.Error()).To(ContainSubstring("only the current player can perform the selected action"))
 		})
 
 		AssertFailedBehavior()
@@ -166,27 +160,23 @@ var _ = Describe("g.moveThief", func() {
 			}
 			user.WithCurrent(c, cu)
 
-			cp, found = g.currentPlayerFor(cu)
-			Expect(found).To(BeTrue())
+			cp = g.currentPlayerFor(cu)
 
-			from, found = g.grid.area(4, 4)
-			Expect(found).To(BeTrue())
+			from = g.grid.area(4, 4)
 
 			from.thief.pid = cp.id
-			g = g.updateArea(from)
+			g.grid = g.grid.updateArea(from)
 
 			g.selectedAreaID = from.areaID
 
-			to, found = g.grid.area(2, 3)
-			Expect(found).To(BeTrue())
+			to = g.grid.area(2, 3)
 
 		})
 
 		Context("when there is a valid request", func() {
 			Context("when the played card is a camel", func() {
 				BeforeEach(func() {
-					to, found = g.grid.area(2, 3)
-					Expect(found).To(BeTrue())
+					to = g.grid.area(2, 3)
 					g.playedCard = newCard(cdCamel, cdFaceUp)
 					c.Request = httptest.NewRequest(
 						http.MethodPost,
@@ -201,8 +191,7 @@ var _ = Describe("g.moveThief", func() {
 
 			Context("when the played card is a lamp", func() {
 				BeforeEach(func() {
-					to, found = g.grid.area(1, 4)
-					Expect(found).To(BeTrue())
+					to = g.grid.area(1, 4)
 					g.playedCard = newCard(cdLamp, cdFaceUp)
 					c.Request = httptest.NewRequest(
 						http.MethodPost,
@@ -228,15 +217,14 @@ var _ = Describe("g.moveThief", func() {
 					AssertSuccessfulBehavior()
 
 					It("should place claimed card in discard pile", func() {
-						cp, found = playerByID(cp.id, g.players)
-						Expect(found).To(BeTrue())
+						cp = playerByID(cp.id, g.players)
 						Expect(cp.discardPile).To(HaveLen(discardPile + 1))
 					})
 				})
 
 				Context("when no selected thief", func() {
 					BeforeEach(func() {
-						g.selectedAreaID = areaID{}
+						g.selectedAreaID = noAreaID
 					})
 
 					AssertFailedBehavior()
@@ -244,8 +232,7 @@ var _ = Describe("g.moveThief", func() {
 
 				Context("when invalid to area", func() {
 					BeforeEach(func() {
-						to, found = g.grid.area(0, 0)
-						Expect(found).To(BeFalse())
+						to = g.grid.area(0, 0)
 						c.Request = httptest.NewRequest(
 							http.MethodPost,
 							"/"+moveThiefPath+"/1",
@@ -261,7 +248,7 @@ var _ = Describe("g.moveThief", func() {
 				Context("when from area has thief of another player", func() {
 					BeforeEach(func() {
 						from.thief.pid = cp.id + 1
-						g = g.updateArea(from)
+						g.grid = g.grid.updateArea(from)
 					})
 
 					AssertFailedBehavior()
@@ -269,7 +256,7 @@ var _ = Describe("g.moveThief", func() {
 
 				Context("when no card played", func() {
 					BeforeEach(func() {
-						g.playedCard = card{}
+						g.playedCard = noCard
 					})
 
 					AssertFailedBehavior()
@@ -277,8 +264,7 @@ var _ = Describe("g.moveThief", func() {
 
 				Context("when card does not permit movement to selected destination", func() {
 					BeforeEach(func() {
-						to, found = g.grid.area(2, 4)
-						Expect(found).To(BeTrue())
+						to = g.grid.area(2, 4)
 						c.Request = httptest.NewRequest(
 							http.MethodPost,
 							"/"+moveThiefPath+"/1",
@@ -294,10 +280,9 @@ var _ = Describe("g.moveThief", func() {
 
 			Context("when the played card is a sword", func() {
 				BeforeEach(func() {
-					to, found = g.grid.area(2, 4)
-					Expect(found).To(BeTrue())
+					to = g.grid.area(2, 4)
 					to.thief.pid = cp.id + 1
-					g = g.updateArea(to)
+					g.grid = g.grid.updateArea(to)
 					g.playedCard = newCard(cdSword, cdFaceUp)
 					c.Request = httptest.NewRequest(
 						http.MethodPost,
@@ -323,8 +308,7 @@ var _ = Describe("g.moveThief", func() {
 					AssertSuccessfulBehavior()
 
 					It("should place claimed card in discard pile", func() {
-						cp, found = playerByID(cp.id, g.players)
-						Expect(found).To(BeTrue())
+						cp = playerByID(cp.id, g.players)
 						Expect(cp.discardPile).To(HaveLen(discardPile + 1))
 					})
 				})
@@ -332,8 +316,7 @@ var _ = Describe("g.moveThief", func() {
 
 			Context("when the played card is a coin", func() {
 				BeforeEach(func() {
-					to, found = g.grid.area(5, 4)
-					Expect(found).To(BeTrue())
+					to = g.grid.area(5, 4)
 					cp.drawPile = append(cp.drawPile, card{cdCamel, cdFaceDown}, card{cdLamp, cdFaceDown})
 					g.updatePlayer(cp)
 					g.playedCard = newCard(cdCoins, cdFaceUp)
@@ -350,8 +333,7 @@ var _ = Describe("g.moveThief", func() {
 
 			Context("when the played card is a turban", func() {
 				BeforeEach(func() {
-					to, found = g.grid.area(5, 4)
-					Expect(found).To(BeTrue())
+					to = g.grid.area(5, 4)
 					cp.drawPile = append(cp.drawPile, card{cdCamel, cdFaceDown}, card{cdLamp, cdFaceDown})
 					g.updatePlayer(cp)
 					g.playedCard = newCard(cdTurban, cdFaceUp)
@@ -374,15 +356,12 @@ var _ = Describe("g.moveThief", func() {
 					})
 
 					It("should move thief", func() {
-						cp, found = g.currentPlayerFor(cu)
-						Expect(found).To(BeTrue())
+						cp = g.currentPlayerFor(cu)
 
-						from, found = g.grid.area(from.row, from.column)
-						Expect(found).To(BeTrue())
+						from = g.grid.area(from.row, from.column)
 						Expect(from.thief.pid).To(BeZero())
 
-						to, found = g.grid.area(to.row, to.column)
-						Expect(found).To(BeTrue())
+						to = g.grid.area(to.row, to.column)
 						Expect(to.thief.pid).To(Equal(cp.id))
 					})
 				})
@@ -417,13 +396,13 @@ var _ = Describe("g.bumpedTo", func() {
 	})
 
 	JustBeforeEach(func() {
-		a = g.bumpedTo(from, to)
+		a = g.grid.bumpedTo(from, to)
 	})
 
 	Context("when moving from above", func() {
 		BeforeEach(func() {
-			from, _ = g.grid.area(1, 4)
-			to, _ = g.grid.area(3, 4)
+			from = g.grid.area(1, 4)
+			to = g.grid.area(3, 4)
 		})
 
 		It("should return space below", func() {
@@ -433,8 +412,8 @@ var _ = Describe("g.bumpedTo", func() {
 
 	Context("when moving from below", func() {
 		BeforeEach(func() {
-			from, _ = g.grid.area(5, 4)
-			to, _ = g.grid.area(3, 4)
+			from = g.grid.area(5, 4)
+			to = g.grid.area(3, 4)
 		})
 
 		It("should return space above", func() {
@@ -444,8 +423,8 @@ var _ = Describe("g.bumpedTo", func() {
 
 	Context("when moving from the left", func() {
 		BeforeEach(func() {
-			from, _ = g.grid.area(3, 1)
-			to, _ = g.grid.area(3, 4)
+			from = g.grid.area(3, 1)
+			to = g.grid.area(3, 4)
 		})
 
 		It("should return space to the right", func() {
@@ -455,8 +434,8 @@ var _ = Describe("g.bumpedTo", func() {
 
 	Context("when moving from the right", func() {
 		BeforeEach(func() {
-			from, _ = g.grid.area(3, 6)
-			to, _ = g.grid.area(3, 4)
+			from = g.grid.area(3, 6)
+			to = g.grid.area(3, 4)
 		})
 
 		It("should return space to the left", func() {
@@ -466,8 +445,8 @@ var _ = Describe("g.bumpedTo", func() {
 
 	Context("default return for invalid bump", func() {
 		BeforeEach(func() {
-			from, _ = g.grid.area(3, 4)
-			to, _ = g.grid.area(3, 4)
+			from = g.grid.area(3, 4)
+			to = g.grid.area(3, 4)
 		})
 
 		It("should return space to the left", func() {

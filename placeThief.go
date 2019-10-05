@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
+
 	"bitbucket.org/SlothNinja/log"
 	"bitbucket.org/SlothNinja/user"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 const placeThiefID = "place-thief"
@@ -37,16 +38,16 @@ func (g game) placeThief(c *gin.Context) (game, error) {
 	cp.score += a.card.value()
 	g = g.updatePlayer(cp)
 
-	g, a = g.placeThiefIn(cp, a)
+	g.grid, a = g.grid.placeThiefIn(cp, a)
 
 	g.Stack = g.Stack.Update()
-	cu, _ := user.Current(c)
+	cu := user.Current(c)
 	g.updateClickablesFor(cu)
 
 	return g, nil
 }
 
-func (g game) placeThiefIn(p player, a area) (game, area) {
+func (g grid) placeThiefIn(p player, a area) (grid, area) {
 	log.Debugf(msgEnter)
 	defer log.Debugf(msgExit)
 
@@ -60,19 +61,19 @@ func (g game) validatePlaceThief(c *gin.Context) (player, area, error) {
 
 	cp, err := g.validatePlayerAction(c)
 	if err != nil {
-		return player{}, area{}, err
+		return noPlayer, noArea, err
 	}
 
 	a, err := g.getArea(c)
 	switch {
 	case err != nil:
-		return player{}, area{}, err
+		return noPlayer, noArea, err
 	case a.card.kind == cdNone:
-		return player{}, area{}, errors.WithMessage(errValidation, "selected area has no card to claim")
-	case a.thief.pid != pidNone:
-		return player{}, area{}, errors.WithMessage(errValidation, "selected area already has a thief")
+		return noPlayer, noArea, fmt.Errorf("selected area has no card to claim: %w", errValidation)
+	case a.thief.pid != noPID:
+		return noPlayer, noArea, fmt.Errorf("selected area already has a thief: %w", errValidation)
 	case g.Phase != phasePlaceThieves:
-		return player{}, area{}, errors.WithMessage(errValidation, "wrong phase for placing thieves")
+		return noPlayer, noArea, fmt.Errorf("wrong phase for placing thieves: %w", errValidation)
 	default:
 		return cp, a, nil
 	}

@@ -19,7 +19,6 @@ var _ = Describe("Play Card", func() {
 		resp          *httptest.ResponseRecorder
 		g             game
 		cu, u1, u2    user.User2
-		found         bool
 		err           error
 	)
 
@@ -51,8 +50,7 @@ var _ = Describe("Play Card", func() {
 		})
 
 		It("should not play card", func() {
-			cp, found = g.currentPlayerFor(cu)
-			Expect(found).To(BeTrue())
+			cp = g.currentPlayerFor(cu)
 
 			Expect(cp.hand).To(HaveLen(hand))
 			Expect(cp.discardPile).To(HaveLen(discard))
@@ -84,8 +82,7 @@ var _ = Describe("Play Card", func() {
 		})
 
 		It("should play card", func() {
-			cp, found = g.currentPlayerFor(cu)
-			Expect(found).To(BeTrue())
+			cp = g.currentPlayerFor(cu)
 			Expect(cp.hand).To(HaveLen(hand - 1))
 			Expect(cp.discardPile).To(HaveLen(discard + 1))
 		})
@@ -99,7 +96,7 @@ var _ = Describe("Play Card", func() {
 
 		It("should indicate there is no current user", func() {
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unable to find current user"))
+			Expect(err.Error()).To(ContainSubstring("only the current player can perform the selected action"))
 		})
 
 		AssertNoCUFailedBehavior()
@@ -118,9 +115,7 @@ var _ = Describe("Play Card", func() {
 			}
 			user.WithCurrent(c, cu)
 
-			cp, found = g.currentPlayerFor(cu)
-			Expect(found).To(BeTrue())
-
+			cp = g.currentPlayerFor(cu)
 			hand, discard = len(cp.hand), len(cp.discardPile)
 		})
 

@@ -1,13 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"bitbucket.org/SlothNinja/log"
 	"bitbucket.org/SlothNinja/sn"
 	"cloud.google.com/go/datastore"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -102,7 +102,7 @@ func (l Log) last() (logEntry, bool) {
 func (s *server) getCount(c *gin.Context) (int64, error) {
 	count, err := sn.Int64Param(c, countParam)
 	if err != nil {
-		return -1, errors.WithMessage(err, "unable to get count")
+		return -1, fmt.Errorf("unable to get count: %w", err)
 	}
 	return count, nil
 }
@@ -110,7 +110,7 @@ func (s *server) getCount(c *gin.Context) (int64, error) {
 func (s server) getOffset(c *gin.Context) (int64, error) {
 	offset, err := sn.Int64Param(c, offsetParam)
 	if err != nil {
-		return -1, errors.WithMessage(err, "unable to get offset")
+		return -1, fmt.Errorf("unable to get offset: %w", err)
 	}
 	return offset, nil
 }

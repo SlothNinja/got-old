@@ -127,8 +127,8 @@ func (g game) endgameResults(c *gin.Context, ps contest.Places, cs contest.Conte
 			if !found {
 				return nil, fmt.Errorf("player for uid: %v not found", k.Name)
 			}
-			p, found := playerByID(pid, g.players)
-			if !found {
+			p := playerByID(pid, g.players)
+			if p.id == noPID {
 				return nil, fmt.Errorf("player with pid: %v not found", pid)
 			}
 			cr, nr, err := rating.IncreaseFor(c, k, g.Type, cs)
@@ -179,8 +179,8 @@ func (g game) winners() []player {
 	}
 	ps := make([]player, l)
 	for i, pid := range g.WinnerIndices {
-		p, found := playerByID(pid, g.players)
-		if found {
+		p := playerByID(pid, g.players)
+		if p.id != noPID {
 			ps[i] = p
 		}
 	}

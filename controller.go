@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"errors"
+
 	"bitbucket.org/SlothNinja/chat"
 	"bitbucket.org/SlothNinja/log"
 	"bitbucket.org/SlothNinja/sn"
@@ -16,7 +18,6 @@ import (
 	"cloud.google.com/go/datastore"
 	randomdata "github.com/Pallinder/go-randomdata"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 const param = "hid"
@@ -27,6 +28,8 @@ type stackFunc func(stack.Stack) stack.Stack
 type server struct {
 	store.Store
 }
+
+var noServer = &server{}
 
 func (s server) show() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -45,9 +48,9 @@ func (s server) show() gin.HandlerFunc {
 			return
 		}
 
-		cu, _ := user.Current(c)
+		cu := user.Current(c)
 		g = g.updateClickablesFor(cu)
-		c.JSON(http.StatusOK, gin.H{"game": g})
+		c.JSON(http.StatusOK, gin.H{gameKey: g})
 	}
 }
 
@@ -56,8 +59,8 @@ func (s server) newInvitation() gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
+		cu := user.Current(c)
+		if cu == user.None {
 			jerr(c, errUserNotFound)
 			return
 		}
@@ -78,8 +81,8 @@ func (s server) createInvitation() gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
+		cu := user.Current(c)
+		if cu == user.None {
 			jerr(c, errUserNotFound)
 			return
 		}
@@ -123,14 +126,14 @@ func (s server) createInvitation() gin.HandlerFunc {
 		_, err = s.RunInTransaction(c, func(tx *datastore.Transaction) error {
 			_, err := tx.Put(invitation.Key, &invitation)
 			if err != nil {
-				return errors.WithMessage(err, "unable to put header")
+				return fmt.Errorf("unable to put header: %w", err)
 			}
 
 			m := chat.NewMLog(c, invitation.ID())
 			m.CreatedAt, m.UpdatedAt = t, t
 			_, err = tx.Put(m.Key, m)
 			if err != nil {
-				return errors.WithMessage(err, "unable to put chat")
+				return fmt.Errorf("unable to put chat: %w", err)
 			}
 			return nil
 		})
@@ -149,15 +152,15 @@ func (s server) acceptInvitation(param string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
+		cu := user.Current(c)
+		if cu == user.None {
 			jerr(c, errUserNotFound)
 			return
 		}
 
 		hid, err := strconv.ParseInt(c.Param(param), 10, 64)
 		if err != nil {
-			jerr(c, errors.WithMessage(err, "unable to get header id"))
+			jerr(c, fmt.Errorf("unable to get header id: %w", err))
 			return
 		}
 
@@ -171,7 +174,7 @@ func (s server) acceptInvitation(param string) gin.HandlerFunc {
 
 		err = s.Get(c, invitation.Key, &invitation)
 		if err != nil {
-			jerr(c, errors.WithMessage(err, "unable to get header"))
+			jerr(c, fmt.Errorf("unable to get header: %w", err))
 			return
 		}
 
@@ -226,8 +229,8 @@ func (s server) dropInvitation(param string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
+		cu := user.Current(c)
+		if cu == user.None {
 			jerr(c, errUserNotFound)
 			return
 		}
@@ -240,7 +243,7 @@ func (s server) dropInvitation(param string) gin.HandlerFunc {
 
 		hid, err := strconv.ParseInt(c.Param(param), 10, 64)
 		if err != nil {
-			jerr(c, errors.WithMessage(err, "unable to get header id"))
+			jerr(c, fmt.Errorf("unable to get header id: %w", err))
 			return
 		}
 
@@ -290,8 +293,8 @@ func (s server) pass() gin.HandlerFunc {
 // var unexpectedErr = "Unexpected error.  Try again."
 
 func jerr(c *gin.Context, err error) {
-	switch errors.Cause(err) {
-	case errValidation:
+	switch {
+	case errors.Is(err, errValidation):
 		c.JSON(http.StatusOK, gin.H{"message": err.Error()})
 	default:
 		log.Debugf(err.Error())
@@ -334,7 +337,7 @@ func (s server) update(param string, act action) gin.HandlerFunc {
 			jerr(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"game": g})
+		c.JSON(http.StatusOK, gin.H{gameKey: g})
 	}
 }
 
@@ -346,7 +349,7 @@ func (s server) init(c *gin.Context) (server, error) {
 	var err error
 	s.Store, err = datastore.NewClient(c, "")
 	if err != nil {
-		return server{}, err
+		return noServer, err
 	}
 	return s, nil
 }
@@ -391,8 +394,8 @@ func (s server) reset(param string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
+		cu := user.Current(c)
+		if cu == user.None {
 			jerr(c, errUserNotFound)
 			return
 		}
@@ -409,9 +412,9 @@ func (s server) reset(param string) gin.HandlerFunc {
 			return
 		}
 
-		cp, found := g.currentPlayerFor(cu)
-		if !found || !g.CPorAdmin(cp.id, cu) {
-			jerr(c, errors.WithMessage(errValidation, "only the current player can reset a move"))
+		cp := g.currentPlayerFor(cu)
+		if cp.id == noPID || !g.CPorAdmin(cp.id, cu) {
+			jerr(c, fmt.Errorf("only the current player can reset a move: %w", errValidation))
 			return
 		}
 
@@ -419,7 +422,7 @@ func (s server) reset(param string) gin.HandlerFunc {
 		g.Stack, changed = g.Stack.Reset()
 		if !changed {
 			g = g.updateClickablesFor(cu)
-			c.JSON(http.StatusOK, gin.H{"game": g})
+			c.JSON(http.StatusOK, gin.H{gameKey: g})
 			return
 		}
 
@@ -442,7 +445,7 @@ func (s server) reset(param string) gin.HandlerFunc {
 		}
 
 		g = g.updateClickablesFor(cu)
-		c.JSON(http.StatusOK, gin.H{"game": g})
+		c.JSON(http.StatusOK, gin.H{gameKey: g})
 	}
 }
 
@@ -451,8 +454,8 @@ func (s server) undo(param string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
+		cu := user.Current(c)
+		if cu == user.None {
 			jerr(c, errUserNotFound)
 			return
 		}
@@ -469,9 +472,9 @@ func (s server) undo(param string) gin.HandlerFunc {
 			return
 		}
 
-		cp, found := g.currentPlayerFor(cu)
-		if !found || !g.CPorAdmin(cp.id, cu) {
-			jerr(c, errors.WithMessage(errValidation, "only the current player can reset a move"))
+		cp := g.currentPlayerFor(cu)
+		if cp.id == noPID || !g.CPorAdmin(cp.id, cu) {
+			jerr(c, fmt.Errorf("only the current player can reset a move: %w", errValidation))
 			return
 		}
 
@@ -479,7 +482,7 @@ func (s server) undo(param string) gin.HandlerFunc {
 		g.Stack, changed = g.Stack.Undo()
 		if !changed {
 			g = g.updateClickablesFor(cu)
-			c.JSON(http.StatusOK, gin.H{"game": g})
+			c.JSON(http.StatusOK, gin.H{gameKey: g})
 			return
 		}
 
@@ -502,7 +505,7 @@ func (s server) undo(param string) gin.HandlerFunc {
 		}
 
 		g = g.updateClickablesFor(cu)
-		c.JSON(http.StatusOK, gin.H{"game": g})
+		c.JSON(http.StatusOK, gin.H{gameKey: g})
 	}
 }
 
@@ -511,8 +514,8 @@ func (s server) redo(param string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		cu, found := user.Current(c)
-		if !found {
+		cu := user.Current(c)
+		if cu == user.None {
 			jerr(c, errUserNotFound)
 			return
 		}
@@ -529,9 +532,9 @@ func (s server) redo(param string) gin.HandlerFunc {
 			return
 		}
 
-		cp, found := g.currentPlayerFor(cu)
-		if !found || !g.CPorAdmin(cp.id, cu) {
-			jerr(c, errors.WithMessage(errValidation, "only the current player can reset a move"))
+		cp := g.currentPlayerFor(cu)
+		if !g.CPorAdmin(cp.id, cu) {
+			jerr(c, fmt.Errorf("only the current player can reset a move: %w", errValidation))
 			return
 		}
 
@@ -539,7 +542,7 @@ func (s server) redo(param string) gin.HandlerFunc {
 		g.Stack, changed = g.Stack.Redo()
 		if !changed {
 			g = g.updateClickablesFor(cu)
-			c.JSON(http.StatusOK, gin.H{"game": g})
+			c.JSON(http.StatusOK, gin.H{gameKey: g})
 			return
 		}
 
@@ -561,7 +564,7 @@ func (s server) redo(param string) gin.HandlerFunc {
 		}
 
 		g = g.updateClickablesFor(cu)
-		c.JSON(http.StatusOK, gin.H{"game": g})
+		c.JSON(http.StatusOK, gin.H{gameKey: g})
 	}
 }
 
@@ -586,7 +589,7 @@ const (
 func (s server) getParam(c *gin.Context, param string) (int64, error) {
 	i, err := sn.Int64Param(c, param)
 	if err != nil {
-		return 0, errors.WithMessage(err, "unable to get param")
+		return 0, fmt.Errorf("unable to get param: %w", errValidation)
 	}
 	return i, nil
 }
@@ -612,7 +615,7 @@ func (s server) getGame(c *gin.Context, param string) (game, error) {
 
 	id, err := s.getParam(c, param)
 	if err != nil {
-		return game{}, err
+		return noGame, err
 	}
 
 	g := newGame(id)

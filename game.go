@@ -17,6 +17,7 @@ const (
 	kind     = "Game"
 	msgExit  = "Exiting"
 	msgEnter = "Entering"
+	gameKey  = "game"
 )
 
 type game struct {
@@ -28,6 +29,8 @@ type game struct {
 	stack.Stack
 	Header
 }
+
+var noGame = game{}
 
 type state struct {
 	players        []player
@@ -226,10 +229,9 @@ func (g game) addNewPlayers() game {
 }
 
 // CurrentPlayer returns the player whose turn it is.
-func (g game) currentPlayerFor(u user.User2) (player, bool) {
-	log.Debugf("g.CPUserIndices: %#v", g.CPUserIndices)
+func (g game) currentPlayerFor(u user.User2) player {
 	if len(g.CPUserIndices) < 1 {
-		return player{}, false
+		return noPlayer
 	}
 
 	pid1 := g.CPUserIndices[0]
@@ -238,17 +240,16 @@ func (g game) currentPlayerFor(u user.User2) (player, bool) {
 	}
 
 	pid2, found := g.PlayerIDFor(u.ID())
-	log.Debugf("pid1: %v pid2: %v found: %v", pid1, pid2, found)
 	if found && (pid1 == pid2) {
 		return playerByID(pid1, g.players)
 	}
-	return player{}, false
+	return noPlayer
 }
 
-// SelectedThiefArea returns the area corresponding to a previously selected thief.
-func (g game) SelectedThiefArea() (area, bool) {
-	return g.grid.area(g.selectedAreaID.row, g.selectedAreaID.column)
-}
+// // SelectedThiefArea returns the area corresponding to a previously selected thief.
+// func (g game) SelectedThiefArea() (area, bool) {
+// 	return g.grid.area(g.selectedAreaID.row, g.selectedAreaID.column)
+// }
 
 func (g game) addNewPlayer(pid int) game {
 	p := g.createPlayer(pid)

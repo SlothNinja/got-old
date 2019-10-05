@@ -5,10 +5,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// func init() {
-// 	move.Register(claimItemID, new(claimItemMoveData))
-// }
-
 const claimItemID = "claim-item"
 
 func (g game) toHand() bool {
@@ -23,7 +19,7 @@ func (g game) toHand() bool {
 	return g.Turn <= (numThieves+1)*g.NumPlayers
 }
 
-func (g game) removeCardFrom(a area) (game, area) {
+func (g grid) removeCardFrom(a area) (grid, area) {
 	log.Debugf(msgEnter)
 	defer log.Debugf(msgExit)
 
@@ -31,13 +27,15 @@ func (g game) removeCardFrom(a area) (game, area) {
 	return g.updateArea(a), a
 }
 
-func (g game) claimItem(a area, cp player, toHand bool) (game, player) {
+func (g game) claimItemFor(cp player, from area) (game, player, area) {
 	log.Debugf(msgEnter)
 	defer log.Debugf(msgExit)
 
+	toHand := g.toHand()
+
 	g.Phase = phaseClaimItem
-	cd := a.card
-	g, a = g.removeCardFrom(a)
+	cd := from.card
+	g.grid, from = g.grid.removeCardFrom(from)
 
 	// If first claimed card, place in hand instead of discard pile
 	if toHand {
@@ -53,42 +51,12 @@ func (g game) claimItem(a area, cp player, toHand bool) (game, player) {
 		"phase":    g.Phase,
 		"turn":     g.Turn,
 		"card":     cd,
-		"from":     a,
+		"from":     from,
 		"toHand":   toHand,
 	})
 
-	return g.updatePlayer(cp), cp
+	return g.updatePlayer(cp), cp, from
 }
-
-// type claimItemMoveData struct {
-// 	Player    player        `json:"player"`
-// 	Phase     gHeader.Phase `json:"phase"`
-// 	Turn      int           `json:"turn"`
-// 	card      card          `json:"card"`
-// 	From      area          `json:"from"`
-// 	ToHand    bool          `json:"toHand"`
-// 	CreatedAt time.Time     `json:"createdAt"`
-// 	Color     color.Color   `json:"color"`
-// }
-//
-// func (g game) claimItemMoveData(p player, from area, cd card, toHand bool) claimItemMoveData {
-// 	return claimItemMoveData{
-// 		Player:    p.hideCards(),
-// 		Phase:     g.Phase,
-// 		Turn:      g.Turn,
-// 		card:      cd,
-// 		From:      from,
-// 		ToHand:    toHand,
-// 		CreatedAt: time.Now(),
-// 	}
-// }
-//
-// func (g game) claimItemMove(p player, from area, cd card, toHand bool) move.Move {
-// 	return move.Move{
-// 		Name: claimItemID,
-// 		Data: g.claimItemMoveData(p, from, cd, toHand),
-// 	}
-// }
 
 func (g game) finalClaim(c *gin.Context) {
 	log.Debugf(msgEnter)
@@ -97,13 +65,13 @@ func (g game) finalClaim(c *gin.Context) {
 	g.Phase = phaseFinalClaim
 	for row := rowA; row <= lastRowFor(g.NumPlayers); row++ {
 		for col := col1; col <= col8; col++ {
-			a, found := g.grid.area(row, col)
-			if found {
-				p, found := playerByID(a.thief.pid, g.players)
-				if found {
+			a := g.grid.area(row, col)
+			if a != noArea {
+				p := playerByID(a.thief.pid, g.players)
+				if p.id != noPID {
 					cd := a.card
 					a.card = newCard(cdNone, cdFaceDown)
-					a.thief.pid = pidNone
+					a.thief.pid = noPID
 					p.discardPile = append([]card{cd}, p.discardPile...)
 				}
 			}

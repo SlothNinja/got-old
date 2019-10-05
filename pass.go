@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
+
 	"bitbucket.org/SlothNinja/log"
 	"bitbucket.org/SlothNinja/user"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 func (g game) Pass(c *gin.Context) (game, error) {
@@ -21,7 +22,7 @@ func (g game) Pass(c *gin.Context) (game, error) {
 	cp.performedAction = true
 
 	g.Phase = phaseClaimItem
-	cu, _ := user.Current(c)
+	cu := user.Current(c)
 	g.updateClickablesFor(cu)
 
 	// Log Pass
@@ -43,9 +44,9 @@ func (g game) validatePass(c *gin.Context) (player, error) {
 	cp, err := g.validatePlayerAction(c)
 	switch {
 	case err != nil:
-		return player{}, err
+		return noPlayer, err
 	case g.Phase != phasePlayCard:
-		return player{}, errors.WithMessage(errValidation, "wrong phase for selected action")
+		return noPlayer, fmt.Errorf("wrong phase for selected action: %w", errValidation)
 	}
 	return cp, nil
 }

@@ -1,27 +1,17 @@
 package main
 
 import (
-	"github.com/pkg/errors"
+	"errors"
+	"fmt"
 )
 
 var (
-	errValidation   = errors.New("validation error")
-	errUnexpected   = errors.New("unexpected error")
-	errUserNotFound = errors.New("current user not found")
+	errValidation         = errors.New("validation error")
+	errUnexpected         = errors.New("unexpected error")
+	errUserNotFound       = fmt.Errorf("current user not found: %w", errValidation)
+	errPlayerNotFound     = fmt.Errorf("player not found: %w", errValidation)
+	errActionNotPerformed = fmt.Errorf("player has yet to perform an action: %w", errValidation)
+	errNotCPorAdmin       = fmt.Errorf("not current player or admin: %w", errValidation)
+	errWrongPhase         = fmt.Errorf("wrong phase: %w", errValidation)
+	errMissingToken       = errors.New("missing token")
 )
-
-// func jsonError(c *gin.Context, err error) {
-// 	jsonErrorf(c, err.Error())
-// }
-//
-// func jsonErrorf(c *gin.Context, format string, args ...interface{}) {
-// 	log.Debugf(format, args...)
-// 	msg := format
-// 	if len(args) > 0 {
-// 		msg = fmt.Sprintf(format, args...)
-// 	}
-// 	c.JSON(http.StatusOK, struct {
-// 		Message string `json:"message"`
-// 		Error   bool   `json:"error"`
-// 	}{msg, true})
-// }

@@ -1,11 +1,12 @@
 package main
 
 import (
+	"fmt"
+
 	"bitbucket.org/SlothNinja/log"
 	"bitbucket.org/SlothNinja/user"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 const playCardID = "play-card"
@@ -55,7 +56,7 @@ func (g game) PlayCard(c *gin.Context) (game, error) {
 	g.Stack = g.Stack.Update()
 
 	g.Phase = phaseSelectThief
-	cu, _ := user.Current(c)
+	cu := user.Current(c)
 	g = g.updateClickablesFor(cu)
 
 	return g, nil
@@ -68,13 +69,13 @@ func (g game) validatePlayCard(c *gin.Context) (player, int, error) {
 	cp, err := g.validatePlayerAction(c)
 	switch {
 	case err != nil:
-		return player{}, 0, err
+		return noPlayer, 0, err
 	case g.Phase != phasePlayCard:
-		return player{}, 0, errors.WithMessage(errValidation, "wrong phase for playing a card")
+		return noPlayer, 0, fmt.Errorf("wrong phase for playing a card: %w", errValidation)
 	default:
 		index, err := getIndex(c, cp.hand)
 		if err != nil {
-			return player{}, 0, err
+			return noPlayer, 0, err
 		}
 		return cp, index, nil
 	}
