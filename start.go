@@ -1,14 +1,12 @@
 package main
 
-import (
-	"bitbucket.org/SlothNinja/status"
-)
+import "github.com/SlothNinja/sn"
 
 const startgameID = "start-game"
 
 // Start begins a Guild of Thieves game.
 func (g game) start() game {
-	g.Status = status.Running
+	g.Status = sn.Running
 	g = g.setupPhase()
 	g = g.beginningOfPhaseReset()
 	g.Phase = phaseStartGame

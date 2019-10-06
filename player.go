@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"math/rand"
 
-	"bitbucket.org/SlothNinja/color"
-	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 )
 
-var defaultColors = []color.Color{color.Yellow, color.Purple, color.Green, color.Black}
+var defaultColors = []sn.Color{sn.Yellow, sn.Purple, sn.Green, sn.Black}
 
 const noPID = 0
 
@@ -21,23 +21,23 @@ type player struct {
 	performedAction bool
 	score           int
 	passed          bool
-	colors          []color.Color
-	user            user.User2
+	colors          []sn.Color
+	user            user.User
 	hand            []card
 	drawPile        []card
 	discardPile     []card
 }
 
 type jPlayer struct {
-	ID              int           `json:"id"`
-	PerformedAction bool          `json:"performedAction"`
-	Score           int           `json:"score"`
-	Passed          bool          `json:"passed"`
-	Colors          []color.Color `json:"colors"`
-	User            user.User2    `json:"user"`
-	Hand            []card        `json:"hand"`
-	DrawPile        []card        `json:"draw"`
-	DiscardPile     []card        `json:"discard"`
+	ID              int        `json:"id"`
+	PerformedAction bool       `json:"performedAction"`
+	Score           int        `json:"score"`
+	Passed          bool       `json:"passed"`
+	Colors          []sn.Color `json:"colors"`
+	User            user.User  `json:"user"`
+	Hand            []card     `json:"hand"`
+	DrawPile        []card     `json:"draw"`
+	DiscardPile     []card     `json:"discard"`
 }
 
 func (p player) MarshalJSON() ([]byte, error) {

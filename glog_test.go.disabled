@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 
 	"bitbucket.org/SlothNinja/got/game"
-	"bitbucket.org/SlothNinja/sn"
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 	"go.chromium.org/gae/filter/featureBreaker"
 	"go.chromium.org/gae/service/taskqueue"

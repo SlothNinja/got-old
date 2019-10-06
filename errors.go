@@ -1,8 +1,8 @@
 package main
 
 import (
-	"errors"
-	"fmt"
+	"golang.org/x/exp/errors"
+	"golang.org/x/exp/errors/fmt"
 )
 
 var (

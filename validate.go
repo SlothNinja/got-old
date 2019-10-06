@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
+	"golang.org/x/exp/errors/fmt"
 
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/user"
 )
 
 func (g game) validatePlayerAction(c *gin.Context) (player, error) {
@@ -31,7 +29,7 @@ func (g game) validateAdminAction(c *gin.Context) error {
 
 	cu := user.Current(c)
 	if !cu.Admin {
-		return errors.WithMessage(errValidation, "only an admin can perform the selected action")
+		return fmt.Errorf("only an admin can perform the selected action: %w", errValidation)
 	}
 	return nil
 }

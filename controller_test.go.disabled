@@ -6,8 +6,7 @@ import (
 	"net/http/httptest"
 
 	"bitbucket.org/SlothNinja/got/game"
-	"bitbucket.org/SlothNinja/stack"
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 
 	"bitbucket.org/SlothNinja/store"
@@ -42,7 +41,7 @@ var _ = Describe("Controller", func() {
 
 		g := game.New()
 		g.Header.ID = 1
-		s.store = &store.Mock{games: []*game.game{g}}
+		s.store = &sn.Mock{games: []*game.game{g}}
 
 		user.WithCurrent(c, u1)
 	})
@@ -66,7 +65,7 @@ var _ = Describe("Controller", func() {
 
 		Describe("when unable to get game", func() {
 			BeforeEach(func() {
-				s.store = &store.Mock{GetError: errors.New("unable to get game")}
+				s.store = &sn.Mock{GetError: errors.New("unable to get game")}
 			})
 
 			It("should warn of being unable to get game", func() {
@@ -167,7 +166,7 @@ var _ = Describe("Controller", func() {
 
 		BeforeEach(func() {
 			act = func(g *game.game, c *gin.Context, cu *user.User) error { return nil }
-			sf = func(s *stack.Stack) {}
+			sf = func(s *sn.Stack) {}
 		})
 
 		Describe("when there is no header id", func() {
@@ -197,7 +196,7 @@ var _ = Describe("Controller", func() {
 
 		Describe("when unable to put game", func() {
 			BeforeEach(func() {
-				s.store = &store.Mock{games: []*game.game{game.New()}, PutError: errors.New("unable to put game")}
+				s.store = &sn.Mock{games: []*game.game{game.New()}, PutError: errors.New("unable to put game")}
 			})
 
 			It("should warn of put error", func() {
@@ -255,7 +254,7 @@ var _ = Describe("Controller", func() {
 
 		Describe("when unable to put header", func() {
 			BeforeEach(func() {
-				s.store = &store.Mock{PutError: errors.New("unable to put header")}
+				s.store = &sn.Mock{PutError: errors.New("unable to put header")}
 			})
 
 			It("should warn of put error", func() {
@@ -266,7 +265,7 @@ var _ = Describe("Controller", func() {
 
 		Describe("when all is good", func() {
 			BeforeEach(func() {
-				s.store = &store.Mock{}
+				s.store = &sn.Mock{}
 			})
 
 			It("should return a game", func() {

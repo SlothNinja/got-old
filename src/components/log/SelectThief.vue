@@ -1,5 +1,7 @@
 <template>
-  <span>Selected thief on {{data.area.card.type}} at {{row}}{{data.area.column}}.</span>
+  <li>
+    Selected thief on {{value.area.card.kind}} at {{row}}{{value.area.column}}.
+  </li>
 </template>
 
 <script>
@@ -8,11 +10,11 @@
   export default {
     mixins: [ Text ],
     name: 'sn-log-select-thief-msg',
-    props: [ 'data' ],
+    props: [ 'value' ],
     computed: {
       row: function () {
         var self = this
-        return self.rowText(self.data.area.row)
+        return self.rowText(self.value.area.row)
       }
     }
   }

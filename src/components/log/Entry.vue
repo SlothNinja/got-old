@@ -3,14 +3,26 @@
     <v-system-bar color='green' dark >
       Turn: {{turn}}
     </v-system-bar>
-    <div>
-      <sn-log-message
-        v-for="(entry, index) in value.log"
-        :key="index"
-        :value='entry'
-      >
-      </sn-log-message>
-    </div>
+    <v-layout row>
+      <v-flex xs2>
+        <div>
+          <sn-player-btn :player='player' size='small'></sn-player-btn>
+        </div>
+        <div>
+          {{player.user.name}}
+        </div>
+      </v-flex>
+      <v-flex xs9>
+        <ul>
+          <sn-log-message
+            v-for="(entry, index) in value.log"
+            :key="index"
+            :value='entry'
+          >
+          </sn-log-message>
+        </ul>
+      </v-flex>
+    </v-layout>
     <v-divider></v-divider>
     <div class="caption">
       {{createdAt}}
@@ -20,19 +32,28 @@
 
 <script>
   import Message from '@/components/log/Message'
+  import Player from '@/components/mixins/Player'
+  import Button from '@/components/player/Button'
 
   const _ = require('lodash')
 
   export default {
+    mixins: [ Player ],
     name: 'sn-log-entry',
     props: [ 'value' ],
     components: {
-      'sn-log-message': Message
+      'sn-log-message': Message,
+      'sn-player-btn': Button
     },
     computed: {
       turn: function () {
         var self = this
         return _.get(self.value, 'log[0].turn', 0)
+      },
+      player: function () {
+        var self = this
+        var pid = _.get(self.value, 'log[0].pid', 0)
+        return self.playerByPID(pid)
       },
       createdAt: function () {
         var self = this

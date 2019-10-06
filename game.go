@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"bitbucket.org/SlothNinja/color"
-	"bitbucket.org/SlothNinja/gtype"
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/stack"
-	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 )
 
 const (
@@ -26,7 +24,7 @@ type game struct {
 	EncodedLog string         `datastore:",noindex"`
 	Log        `datastore:"-"`
 	state      `datastore:"-"`
-	stack.Stack
+	sn.Stack
 	Header
 }
 
@@ -75,7 +73,7 @@ func (s *state) UnmarshalJSON(bs []byte) error {
 
 func newGame(id int64) game {
 	var g game
-	g.Type = gtype.GOT
+	g.Type = sn.GOT
 	g.Key = newKey(id)
 	return g
 }
@@ -92,7 +90,7 @@ type jGame struct {
 	ID     int64          `json:"id"`
 	Key    *datastore.Key `json:"key"`
 	Log    Log            `json:"log"`
-	Stack  stack.Stack    `json:"undoStack"`
+	Stack  sn.Stack       `json:"undoStack"`
 	State  state          `json:"state"`
 	Header Header         `json:"header"`
 }
@@ -229,7 +227,7 @@ func (g game) addNewPlayers() game {
 }
 
 // CurrentPlayer returns the player whose turn it is.
-func (g game) currentPlayerFor(u user.User2) player {
+func (g game) currentPlayerFor(u user.User) player {
 	if len(g.CPUserIndices) < 1 {
 		return noPlayer
 	}
@@ -262,7 +260,7 @@ func (g game) createPlayer(pid int) player {
 	p.id = pid
 	p.user = g.Users[pid-1]
 
-	p.colors = make([]color.Color, g.NumPlayers)
+	p.colors = make([]sn.Color, g.NumPlayers)
 
 	for i := 0; i < g.NumPlayers; i++ {
 		index := (i - p.id) % g.NumPlayers

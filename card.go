@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"bitbucket.org/SlothNinja/log"
+	"github.com/SlothNinja/log"
 	"github.com/gin-gonic/gin"
 )
 

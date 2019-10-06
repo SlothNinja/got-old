@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/user"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"

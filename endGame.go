@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"bitbucket.org/SlothNinja/contest"
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/rating"
-	"bitbucket.org/SlothNinja/status"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/sn"
 	"github.com/gin-gonic/gin"
 )
 
@@ -55,9 +53,9 @@ func (g game) endgame(c *gin.Context) ([]result, error) {
 	// 	"phase":    g.Phase,
 	// })
 
-	cs := contest.GenContests(c, ps)
+	cs := sn.GenContests(c, ps)
 
-	g.Status = status.Completed
+	g.Status = sn.Completed
 
 	// Need to call endgameResults before saving the new contests.
 	// endgameResults relies on pulling the old contests from the datastore.
@@ -101,9 +99,9 @@ func (g game) toIDS(places [][]player) [][]string {
 //	return
 //}
 
-func (g game) setWinners(rmap contest.ResultsMap) {
+func (g game) setWinners(rmap sn.ResultsMap) {
 	g.Phase = phaseAnnounceWinners
-	g.Status = status.Completed
+	g.Status = sn.Completed
 
 	g.CPUserIndices = nil
 	g.WinnerIndices = nil
@@ -114,7 +112,7 @@ func (g game) setWinners(rmap contest.ResultsMap) {
 
 }
 
-func (g game) endgameResults(c *gin.Context, ps contest.Places, cs contest.Contests) ([]result, error) {
+func (g game) endgameResults(c *gin.Context, ps sn.Places, cs sn.Contests) ([]result, error) {
 	log.Debugf("Entering")
 	defer log.Debugf("Exiting")
 
@@ -131,7 +129,7 @@ func (g game) endgameResults(c *gin.Context, ps contest.Places, cs contest.Conte
 			if p.id == noPID {
 				return nil, fmt.Errorf("player with pid: %v not found", pid)
 			}
-			cr, nr, err := rating.IncreaseFor(c, k, g.Type, cs)
+			cr, nr, err := sn.IncreaseRatingFor(c, k, g.Type, cs)
 			if err != nil {
 				return nil, err
 			}
@@ -187,7 +185,7 @@ func (g game) winners() []player {
 	return ps
 }
 
-func (g game) determinePlaces(c *gin.Context) (contest.Places, error) {
+func (g game) determinePlaces(c *gin.Context) (sn.Places, error) {
 	// sort players by score with greatest first
 	ps := g.players
 	sort.SliceStable(ps, func(i, j int) bool {
@@ -197,19 +195,19 @@ func (g game) determinePlaces(c *gin.Context) (contest.Places, error) {
 	g.players = ps
 
 	uids := playerUKeys(g.players)
-	rs, err := rating.GetMulti(c, uids, g.Type)
+	rs, err := sn.GetMultiRating(c, uids, g.Type)
 	if err != nil {
 		return nil, err
 	}
 
-	places := make(contest.Places, 0)
-	rmap := make(contest.ResultsMap, 0)
+	places := make(sn.Places, 0)
+	rmap := make(sn.ResultsMap, 0)
 	for i, p1 := range g.players {
-		results := make(contest.Results, 0)
+		results := make(sn.Results, 0)
 		tie := false
 		for j, p2 := range g.players {
 			p2Rating := rs[j]
-			result := &contest.Result{
+			result := &sn.Result{
 				GameID: g.ID(),
 				R:      p2Rating.R,
 				RD:     p2Rating.RD,
@@ -228,7 +226,7 @@ func (g game) determinePlaces(c *gin.Context) (contest.Places, error) {
 		rmap[uids[i]] = results
 		if !tie {
 			places = append(places, rmap)
-			rmap = make(contest.ResultsMap, 0)
+			rmap = make(sn.ResultsMap, 0)
 		} else if i == len(g.players)-1 {
 			places = append(places, rmap)
 		}

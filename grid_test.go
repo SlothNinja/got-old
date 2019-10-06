@@ -2,14 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
-	"errors"
+	"golang.org/x/exp/errors"
+	"golang.org/x/exp/errors/fmt"
 
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 
 	. "github.com/onsi/ginkgo"
@@ -250,7 +250,7 @@ var _ = Describe("grid", func() {
 		a          area
 		aid        areaID
 		g          game
-		u1, u2, u3 user.User2
+		u1, u2, u3 user.User
 	)
 
 	BeforeEach(func() {

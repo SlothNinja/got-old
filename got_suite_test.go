@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bitbucket.org/SlothNinja/status"
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,7 +15,7 @@ func TestGot(t *testing.T) {
 	RunSpecs(t, "Got Suite")
 }
 
-func createUsers() (user.User2, user.User2) {
+func createUsers() (user.User, user.User) {
 	u1 := user.New2("1")
 	u1.Name = "SlothNinja1"
 
@@ -25,7 +25,7 @@ func createUsers() (user.User2, user.User2) {
 	return u1, u2
 }
 
-func createGame(c *gin.Context, u1, u2 user.User2) game {
+func createGame(c *gin.Context, u1, u2 user.User) game {
 	h := newHeaderEntity(newGame(1))
 	h.Creator = u1
 	h.Title = "SlothNinja's Game"
@@ -39,7 +39,7 @@ func createGame(c *gin.Context, u1, u2 user.User2) game {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(start).To(BeTrue())
 
-	h.Status = status.Starting
+	h.Status = sn.Starting
 
 	g := newGame(h.ID())
 	g.Header = h.Header
@@ -47,7 +47,7 @@ func createGame(c *gin.Context, u1, u2 user.User2) game {
 	return g
 }
 
-func createUsers3() (user.User2, user.User2, user.User2) {
+func createUsers3() (user.User, user.User, user.User2) {
 	u1 := user.New2("1")
 	u1.Name = "SlothNinja1"
 
@@ -60,7 +60,7 @@ func createUsers3() (user.User2, user.User2, user.User2) {
 	return u1, u2, u3
 }
 
-func createGame3(c *gin.Context, u1, u2, u3 user.User2) game {
+func createGame3(c *gin.Context, u1, u2, u3 user.User) game {
 	h := newHeaderEntity(newGame(1))
 	h.Creator = u1
 	h.Title = "SlothNinja's Game"
@@ -78,7 +78,7 @@ func createGame3(c *gin.Context, u1, u2, u3 user.User2) game {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(start).To(BeTrue())
 
-	h.Status = status.Starting
+	h.Status = sn.Starting
 
 	g := newGame(h.ID())
 	g.Header = h.Header

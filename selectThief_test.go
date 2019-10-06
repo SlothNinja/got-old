@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -18,7 +18,7 @@ var _ = Describe("Select Thief", func() {
 		cp         player
 		resp       *httptest.ResponseRecorder
 		g          game
-		cu, u1, u2 user.User2
+		cu, u1, u2 user.User
 		err        error
 	)
 

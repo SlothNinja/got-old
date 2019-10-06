@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"time"
 
-	"bitbucket.org/SlothNinja/header"
-	"bitbucket.org/SlothNinja/sn"
-	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 )
 
-const headerKind = header.HeaderKind
+const headerKind = sn.HeaderKind
 
 func newHeaderEntity(g game) headerEntity {
 	return headerEntity{Header: g.Header, Key: newHeaderKey(g.ID())}
@@ -35,27 +34,27 @@ type headerEntity struct {
 	Header
 }
 
-func (e headerEntity) Accept(c *gin.Context, cu user.User2) (headerEntity, bool, error) {
+func (e headerEntity) Accept(c *gin.Context, cu user.User) (headerEntity, bool, error) {
 	h, start, err := e.Header.Header.Accept(c, cu)
 	e.Header.Header = h
 	return e, start, err
 }
 
-func (e headerEntity) Drop(cu user.User2) (headerEntity, error) {
+func (e headerEntity) Drop(cu user.User) (headerEntity, error) {
 	h, err := e.Header.Header.Drop(cu)
 	e.Header.Header = h
 	return e, err
 }
 
-func (e headerEntity) AddUser(cu user.User2) headerEntity {
+func (e headerEntity) AddUser(cu user.User) headerEntity {
 	h := e.Header.Header.AddUser(cu)
 	e.Header.Header = h
 	return e
 }
 
-func (e headerEntity) LastUpdated() string {
-	return sn.LastUpdated(e.UpdatedAt)
-}
+// func (e headerEntity) LastUpdated() string {
+// 	return sn.LastUpdated(e.UpdatedAt)
+// }
 
 func (e headerEntity) LastUpdate() time.Time {
 	return e.UpdatedAt
@@ -78,17 +77,17 @@ func (e headerEntity) MarshalJSON() ([]byte, error) {
 		Public      string `json:"public"`
 		LastUpdated string `json:"lastUpdated"`
 	}{
-		JEntity:     JEntity(e),
-		ID:          e.Key.ID,
-		Public:      status,
-		LastUpdated: e.LastUpdated(),
+		JEntity: JEntity(e),
+		ID:      e.Key.ID,
+		Public:  status,
+		// LastUpdated: e.LastUpdated(),
 	})
 }
 
 // Header provides game/invitation header data
 type Header struct {
 	TwoThiefVariant bool `json:"twoThief"`
-	header.Header
+	sn.Header
 }
 
-var getHID = header.GetHID
+var getHID = sn.GetHID

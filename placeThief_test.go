@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"bitbucket.org/SlothNinja/store"
-	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 
 	. "github.com/onsi/ginkgo"
@@ -21,7 +21,7 @@ var _ = Describe("s.placeThief", func() {
 		r      *gin.Engine
 		resp   *httptest.ResponseRecorder
 		req    *http.Request
-		u1, u2 user.User2
+		u1, u2 user.User
 	)
 
 	BeforeEach(func() {
@@ -31,7 +31,7 @@ var _ = Describe("s.placeThief", func() {
 		u1, u2 = createUsers()
 		es := make(map[*datastore.Key]interface{})
 		es[newKey(1)] = createGame(c, u1, u2)
-		s = server{&store.Mock{Entities: es}}
+		s = server{&sn.Mock{Entities: es}}
 		addRoutes(rootPath, r, s)
 
 		resp = httptest.NewRecorder()
@@ -62,7 +62,7 @@ var _ = Describe("g.placeThief", func() {
 		cp         player
 		a          area
 		g          game
-		cu, u1, u2 user.User2
+		cu, u1, u2 user.User
 		err        error
 	)
 

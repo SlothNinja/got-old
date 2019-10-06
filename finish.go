@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/status"
-	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 )
 
@@ -34,11 +34,12 @@ func (s server) finish(param, path string) gin.HandlerFunc {
 			return
 		}
 
-		var rs []result
+		// var rs []result
 
 		if g.Phase == phaseGameOver {
-			g.Status = status.Ending
-			rs, err = g.endgame(c)
+			g.Status = sn.Ending
+			_, err = g.endgame(c)
+			// rs, err = g.endgame(c)
 			if err != nil {
 				jerr(c, err)
 				return
@@ -53,10 +54,10 @@ func (s server) finish(param, path string) gin.HandlerFunc {
 			if err != nil {
 				return err
 			}
-			err = sendEndGameNotifications(c, g.Header, rs)
-			if err != nil {
-				log.Warningf(err.Error())
-			}
+			// err = sendEndGameNotifications(c, g.Header, rs)
+			// if err != nil {
+			// 	log.Warningf(err.Error())
+			// }
 			return nil
 		})
 

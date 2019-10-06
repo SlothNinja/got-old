@@ -1,6 +1,6 @@
 package main
 
-import "bitbucket.org/SlothNinja/log"
+import "github.com/SlothNinja/log"
 
 func (g game) setupPhase() game {
 	g.Phase = phaseSetup

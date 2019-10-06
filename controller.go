@@ -1,35 +1,30 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
-	"errors"
-
-	"bitbucket.org/SlothNinja/chat"
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/sn"
-	"bitbucket.org/SlothNinja/stack"
-	"bitbucket.org/SlothNinja/status"
-	"bitbucket.org/SlothNinja/store"
-	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
 	randomdata "github.com/Pallinder/go-randomdata"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/exp/errors"
+	"golang.org/x/exp/errors/fmt"
 )
 
 const param = "hid"
 
 type action func(game, *gin.Context) (game, error)
-type stackFunc func(stack.Stack) stack.Stack
+type stackFunc func(sn.Stack) sn.Stack
 
 type server struct {
-	store.Store
+	sn.Store
 }
 
-var noServer = &server{}
+var noServer = server{}
 
 func (s server) show() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -120,7 +115,7 @@ func (s server) createInvitation() gin.HandlerFunc {
 		invitation.Password = jData.Header.Password
 		invitation.Creator = cu
 		invitation = invitation.AddUser(cu)
-		invitation.Status = status.Recruiting
+		invitation.Status = sn.Recruiting
 		invitation.CreatedAt, invitation.UpdatedAt = t, t
 
 		_, err = s.RunInTransaction(c, func(tx *datastore.Transaction) error {
@@ -129,7 +124,7 @@ func (s server) createInvitation() gin.HandlerFunc {
 				return fmt.Errorf("unable to put header: %w", err)
 			}
 
-			m := chat.NewMLog(c, invitation.ID())
+			m := sn.NewMLog(c, invitation.ID())
 			m.CreatedAt, m.UpdatedAt = t, t
 			_, err = tx.Put(m.Key, m)
 			if err != nil {
@@ -185,7 +180,7 @@ func (s server) acceptInvitation(param string) gin.HandlerFunc {
 		}
 
 		if start {
-			invitation.Status = status.Starting
+			invitation.Status = sn.Starting
 
 			g := newGame(invitation.ID())
 			g.Header = invitation.Header
@@ -203,7 +198,7 @@ func (s server) acceptInvitation(param string) gin.HandlerFunc {
 				return
 			}
 
-			sendTurnNotification(c, g.Header, g.CPUserIndices[0])
+			// sendTurnNotification(c, g.Header, g.CPUserIndices[0])
 			c.JSON(http.StatusOK, gin.H{
 				"header":  invitation,
 				"message": cu.Name + " joined game " + invitation.Title,
@@ -262,7 +257,7 @@ func (s server) dropInvitation(param string) gin.HandlerFunc {
 		}
 
 		if len(invitation.Users) == 0 {
-			invitation.Status = status.Aborted
+			invitation.Status = sn.Aborted
 		}
 
 		_, err = s.Put(c, invitation.Key, &invitation)
@@ -568,7 +563,7 @@ func (s server) redo(param string) gin.HandlerFunc {
 	}
 }
 
-// func (s *server) before(c *gin.Context, param string) (*game, *user.User2, error) {
+// func (s *server) before(c *gin.Context, param string) (*game, *user.User, error) {
 // 	log.Debugf("Entering")
 // 	defer log.Debugf("Exiting")
 //

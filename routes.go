@@ -1,15 +1,14 @@
 package main
 
 import (
-	"bitbucket.org/SlothNinja/chat"
-	"bitbucket.org/SlothNinja/mail"
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	authPath    = "/auth"
-	mailPrefix  = "/mail"
+	authPath = "/auth"
+	// mailPrefix  = "/mail"
 	hidParam    = "hid"
 	countParam  = "count"
 	offsetParam = "offset"
@@ -46,7 +45,7 @@ const (
 
 func addRoutes(prefix string, engine *gin.Engine, s server) {
 	// Mail route
-	mail.AddRoutes(mailPrefix, engine)
+	// mail.AddRoutes(mailPrefix, engine)
 
 	// Group
 	g1 := engine.Group(prefix)
@@ -147,12 +146,12 @@ func addRoutes(prefix string, engine *gin.Engine, s server) {
 
 	// Add Message
 	g1.PUT(addMessagePath+"/:"+hidParam,
-		chat.AddMLogMessage(),
+		sn.AddMLogMessage(),
 	)
 
 	// Get Messages
 	g1.GET(messagesPath+"/:"+hidParam+"/:"+offsetParam,
-		chat.GetMLog(hidParam, offsetParam),
+		sn.GetMLog(hidParam, offsetParam),
 	)
 
 	// Get game Log

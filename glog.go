@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/sn"
 	"cloud.google.com/go/datastore"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/sn"
 	"github.com/gin-gonic/gin"
 )
 

@@ -1,9 +1,9 @@
 package main
 
-import gHeader "bitbucket.org/SlothNinja/header"
+import "github.com/SlothNinja/sn"
 
 const (
-	phaseNone gHeader.Phase = iota
+	phaseNone sn.Phase = iota
 	phaseSetup
 	phaseStartGame
 	phasePlaceThieves
@@ -17,7 +17,7 @@ const (
 	phaseEndGame
 )
 
-func phaseName(p gHeader.Phase) string {
+func phaseName(p sn.Phase) string {
 	switch p {
 	case phaseSetup:
 		return "phaseSetup"

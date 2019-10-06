@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/user"
 )
 
-func (g game) updateClickablesFor(u user.User2) game {
+func (g game) updateClickablesFor(u user.User) game {
 	canClick := g.canClick(u)
 	g.grid.each(func(a area) area {
 		a.clickable = canClick(a)
@@ -16,7 +16,7 @@ func (g game) updateClickablesFor(u user.User2) game {
 // canClick returns a function specialized by current game context to test whether a player can click on
 // a particular area in the grid.  The main benefit is the function provides a closure around area computions,
 // essentially caching the results.
-func (g game) canClick(u user.User2) func(area) bool {
+func (g game) canClick(u user.User) func(area) bool {
 	ff := func(a area) bool { return false }
 	cp := g.currentPlayerFor(u)
 	if cp.id == noPID || cp.performedAction {

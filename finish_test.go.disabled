@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 
 	"bitbucket.org/SlothNinja/got/game"
-	"bitbucket.org/SlothNinja/sn"
+	"github.com/SlothNinja/sn"
 	"bitbucket.org/SlothNinja/store"
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 	"go.chromium.org/gae/filter/featureBreaker"
 	"go.chromium.org/gae/service/taskqueue"
@@ -57,7 +57,7 @@ var _ = Describe("Controller", func() {
 
 		g = game.New()
 		g.Header.ID = 1
-		s.store = &store.Mock{games: []*game.game{g}}
+		s.store = &sn.Mock{games: []*game.game{g}}
 
 		// Add taskqueue for ending games.
 		ctx, fb = featureBreaker.FilterTQ(sn.Context(c), errors.New("default error"))
@@ -78,7 +78,7 @@ var _ = Describe("Controller", func() {
 			h.Title = "New game"
 			h.NumPlayers = 2
 
-			s.store = &store.Mock{Headers: []*Header{h}}
+			s.store = &sn.Mock{Headers: []*Header{h}}
 		})
 
 		JustBeforeEach(func() {
@@ -90,7 +90,7 @@ var _ = Describe("Controller", func() {
 		Describe("when `before` call errors", func() {
 
 			BeforeEach(func() {
-				s.store = &store.Mock{GetError: errors.New("unable to get game")}
+				s.store = &sn.Mock{GetError: errors.New("unable to get game")}
 			})
 
 			It("should abort and return http error", func() {
@@ -127,7 +127,7 @@ var _ = Describe("Controller", func() {
 
 			Describe("when unable to put game", func() {
 				BeforeEach(func() {
-					s.store = &store.Mock{
+					s.store = &sn.Mock{
 						games:    []*game.game{game.New()},
 						PutError: errors.New("unable to put game"),
 					}
@@ -158,7 +158,7 @@ var _ = Describe("Controller", func() {
 
 			Describe("when unable to put game", func() {
 				BeforeEach(func() {
-					s.store = &store.Mock{
+					s.store = &sn.Mock{
 						games:    []*game.game{g},
 						PutError: errors.New("unable to put game"),
 					}

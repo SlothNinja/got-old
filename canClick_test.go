@@ -3,7 +3,7 @@ package main
 import (
 	"net/http/httptest"
 
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 
 	. "github.com/onsi/ginkgo"
@@ -16,7 +16,7 @@ var _ = Describe("g.grid.lampAreas", func() {
 		c                 *gin.Context
 		resp              *httptest.ResponseRecorder
 		g                 game
-		u1, u2            user.User2
+		u1, u2            user.User
 		expectedAreas, as []area
 	)
 
@@ -93,7 +93,7 @@ var _ = Describe("g.swordAreasFor", func() {
 		cp                player
 		resp              *httptest.ResponseRecorder
 		g                 game
-		cu, u1, u2        user.User2
+		cu, u1, u2        user.User
 		expectedAreas, as []area
 	)
 
@@ -205,7 +205,7 @@ var _ = Describe("g.carpetAreas", func() {
 		cp                player
 		resp              *httptest.ResponseRecorder
 		g                 game
-		cu, u1, u2        user.User2
+		cu, u1, u2        user.User
 		expectedAreas, as []area
 	)
 
@@ -387,7 +387,7 @@ var _ = Describe("g.camelEEE", func() {
 		c                   *gin.Context
 		resp                *httptest.ResponseRecorder
 		g                   game
-		u1, u2              user.User2
+		u1, u2              user.User
 		ta, expectedArea, a area
 	)
 
@@ -449,7 +449,7 @@ var _ = Describe("g.camelWWW", func() {
 		c                   *gin.Context
 		resp                *httptest.ResponseRecorder
 		g                   game
-		u1, u2              user.User2
+		u1, u2              user.User
 		ta, expectedArea, a area
 	)
 
@@ -511,7 +511,7 @@ var _ = Describe("g.camelNNN", func() {
 		c                   *gin.Context
 		resp                *httptest.ResponseRecorder
 		g                   game
-		u1, u2              user.User2
+		u1, u2              user.User
 		ta, expectedArea, a area
 	)
 
@@ -573,7 +573,7 @@ var _ = Describe("g.grid.turban0Areas", func() {
 		c                 *gin.Context
 		resp              *httptest.ResponseRecorder
 		g                 game
-		u1, u2            user.User2
+		u1, u2            user.User
 		expectedAreas, as []area
 	)
 

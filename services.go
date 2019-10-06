@@ -4,23 +4,15 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/user"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/user"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
-	"go.chromium.org/gae/service/info"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	"google.golang.org/appengine"
-
-	"cloud.google.com/go/datastore"
 )
 
 const (
@@ -125,7 +117,7 @@ const (
 // 	OmitUpdatedAt omit          `json:"updatedat,omitempty"`
 // }
 //
-// func toUserTable(c *gin.Context, us []user.User2) (table *jUserIndex, err error) {
+// func toUserTable(c *gin.Context, us []user.User) (table *jUserIndex, err error) {
 // 	log.Debugf("Entering")
 // 	defer log.Debugf("Exiting")
 //
@@ -210,8 +202,8 @@ func newUserAction(prefix string) gin.HandlerFunc {
 			return
 		}
 
-		u := user.New2(token.ID)
-		u.Name = user.Name(token.Email)
+		u := user.New(token.ID)
+		u.Name = user.NameFrom(token.Email)
 		u.Email = token.Email
 		u.EmailReminders = true
 		u.EmailNotifications = true
@@ -240,8 +232,15 @@ func jsonUser(prefix string) gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		id := c.Param("id")
-		u, err := user.ByID(c, id)
+		uClient, err := user.Client(c)
+		if err != nil {
+			log.Warningf(err.Error())
+			c.Redirect(http.StatusSeeOther, homePath)
+			return
+		}
+
+		u := user.New(c.Param("id"))
+		err = uClient.Get(c, u.Key, &u)
 		if err != nil {
 			log.Warningf("ByID err: %s", err)
 			c.Redirect(http.StatusSeeOther, homePath)
@@ -264,7 +263,7 @@ func jsonUser(prefix string) gin.HandlerFunc {
 // 	}
 //
 // 	log.Debugf("token: %#v", token)
-// 	u := user.New2(token.ID)
+// 	u := user.New(token.ID)
 // 	u.Name = user.Name(token.Email)
 // 	c.HTML(http.StatusOK, "user/new_dev", gin.H{
 // 		"Context": c,
@@ -272,94 +271,101 @@ func jsonUser(prefix string) gin.HandlerFunc {
 // 	})
 // }
 //
-func createUser(prefix string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		log.Debugf("Entering")
-		defer log.Debugf("Exiting")
+// func createUser(prefix string) gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		log.Debugf("Entering")
+// 		defer log.Debugf("Exiting")
+//
+// 		cu := user.Current(c)
+// 		if cu == user.None {
+// 			jerr(c, errUserNotFound)
+// 			return
+// 		}
+//
+// 		if !cu.Admin {
+// 			c.JSON(http.StatusOK, gin.H{"message": "must be logged-in to create account"})
+// 			return
+// 		}
+//
+// 		session := sessions.Default(c)
+// 		token, ok := user.SessionTokenFrom(session)
+// 		if !ok {
+// 			log.Errorf("Missing SessionToken")
+// 			jsonMsg(c, "Must be logged-in to create account.")
+// 			return
+// 		}
+//
+// 		uClient, err := user.Client(c)
+// 		if err == nil {
+// 			jsonMsg(c, "unable to connect to user db: %w", err)
+// 			return
+// 		}
+//
+// 		u := user.New(token.ID)
+// 		err = uClient.Get(c, u.Key, &u)
+// 		if err == nil {
+// 			jsonMsg(c, "Account already exists for id: %s", token.ID)
+// 			return
+// 		}
+//
+// 		if err != datastore.ErrNoSuchEntity {
+// 			jsonMsg(c, "Unexpected error. Try again.")
+// 			return
+// 		}
+//
+// 		u, err = fromJSON(c, token.ID, token.Email)
+// 		if err != nil {
+// 			log.Errorf(err.Error())
+// 			jsonMsg(c, "Unexpected error. Try again.")
+// 			return
+// 		}
+//
+// 		id0, id1, gid, joinedAt, found, err := user.ByOldEntries(c, u.Email)
+// 		if err != nil {
+// 			log.Errorf("user.ByOldEntries error: %s", err)
+// 			jsonMsg(c, "Unexpected error. Try again.")
+// 			return
+// 		}
+//
+// 		log.Debugf("found: %#v", found)
+// 		if found {
+// 			u.User0ID = id0
+// 			u.User1ID = id1
+// 			u.GoogleID = gid
+// 			u.JoinedAt = joinedAt
+// 		}
+//
+// 		client, err := user.Client(c)
+// 		if err != nil {
+// 			log.Errorf(err.Error())
+// 			jsonMsg(c, "Unexpected error. Try again.")
+// 			return
+// 		}
+//
+// 		t := time.Now()
+// 		u.UpdatedAt, u.CreatedAt = t, t
+// 		if u.JoinedAt.IsZero() {
+// 			u.JoinedAt = t
+// 		}
+// 		_, err = client.Put(c, u.Key, u)
+// 		if err != nil {
+// 			log.Errorf("datastore.Put error: %v", err)
+// 			jsonMsg(c, "Unexpected error. Try again.")
+// 			return
+// 		}
+//
+// 		log.Debugf("put user: %#v", u)
+//
+// 		err = u.To(session)
+// 		if err != nil {
+// 			log.Errorf("session.Save error: %v", err)
+// 		}
+//
+// 		c.JSON(http.StatusOK, gin.H{"u": u})
+// 	}
+// }
 
-		cu := user.Current(c)
-		if cu == user.None {
-			jerr(c, errUserNotFound)
-			return
-		}
-
-		if !cu.Admin {
-			c.JSON(http.StatusOK, gin.H{"message": "must be logged-in to create account"})
-			return
-		}
-
-		session := sessions.Default(c)
-		token, ok := user.SessionTokenFrom(session)
-		if !ok {
-			log.Errorf("Missing SessionToken")
-			jsonMsg(c, "Must be logged-in to create account.")
-			return
-		}
-
-		u, err := user.ByID(c, token.ID)
-		if err == nil {
-			jsonMsg(c, "Account already exists for id: %s", token.ID)
-			return
-		}
-
-		if err != datastore.ErrNoSuchEntity {
-			jsonMsg(c, "Unexpected error. Try again.")
-			return
-		}
-
-		u, err = fromJSON(c, token.ID, token.Email)
-		if err != nil {
-			log.Errorf(err.Error())
-			jsonMsg(c, "Unexpected error. Try again.")
-			return
-		}
-
-		id0, id1, gid, joinedAt, found, err := user.ByOldEntries(c, u.Email)
-		if err != nil {
-			log.Errorf("user.ByOldEntries error: %s", err)
-			jsonMsg(c, "Unexpected error. Try again.")
-			return
-		}
-
-		log.Debugf("found: %#v", found)
-		if found {
-			u.User0ID = id0
-			u.User1ID = id1
-			u.GoogleID = gid
-			u.JoinedAt = joinedAt
-		}
-
-		client, err := user.Client(c)
-		if err != nil {
-			log.Errorf(err.Error())
-			jsonMsg(c, "Unexpected error. Try again.")
-			return
-		}
-
-		t := time.Now()
-		u.UpdatedAt, u.CreatedAt = t, t
-		if u.JoinedAt.IsZero() {
-			u.JoinedAt = t
-		}
-		_, err = client.Put(c, u.Key, u)
-		if err != nil {
-			log.Errorf("datastore.Put error: %v", err)
-			jsonMsg(c, "Unexpected error. Try again.")
-			return
-		}
-
-		log.Debugf("put user: %#v", u)
-
-		err = u.To(session)
-		if err != nil {
-			log.Errorf("session.Save error: %v", err)
-		}
-
-		c.JSON(http.StatusOK, gin.H{"u": u})
-	}
-}
-
-func fromJSON(c *gin.Context, id, email string) (user.User2, error) {
+func fromJSON(c *gin.Context, id, email string) (user.User, error) {
 	log.Debugf("Entering")
 	defer log.Debugf("Exiting")
 
@@ -371,10 +377,10 @@ func fromJSON(c *gin.Context, id, email string) (user.User2, error) {
 
 	err := c.ShouldBindJSON(&jData)
 	if err != nil {
-		return user.User2{}, err
+		return user.User{}, err
 	}
 
-	u := user.New2(id)
+	u := user.New(id)
 	u.Name = strings.TrimSpace(jData.Name)
 	u.LCName = strings.ToLower(jData.Name)
 	u.Email = email
@@ -457,105 +463,105 @@ func showUserPath(prefix string, uid string) string {
 //	c.AddNoticef("IM Invite sent to %s", u.Name)
 //	render.Redirect(routes.URLFor("user_show", params["uid"]), http.StatusSeeOther)
 //}
-func update(prefix string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		log.Debugf("Entering")
-		defer log.Debugf("Exiting")
-
-		cu := user.Current(c)
-		if cu == user.None {
-			jerr(c, errUserNotFound)
-			return
-		}
-
-		uid := c.Param("uid")
-		if uid != cu.ID() && !cu.Admin {
-			jsonMsg(c, "You can only edit your own account.")
-			return
-		}
-
-		u, err := user.ByID(c, uid)
-		if err != nil {
-			log.Errorf(err.Error())
-			jsonMsg(c, "Unexpected error. Try again.")
-			return
-		}
-
-		u2, err := fromJSON(c, u.ID(), u.Email)
-		if err != nil {
-			log.Errorf(err.Error())
-			jsonMsg(c, "Unexpected error. Try again.")
-			return
-		}
-
-		uniq, err := uniqueName(c, u2)
-		if err != nil {
-			log.Errorf(err.Error())
-			jsonMsg(c, "Unexpected error. Try again.")
-			return
-		}
-
-		if !uniq {
-			jsonMsg(c, "Screen Name: %s already in use.", u2.Name)
-			return
-		}
-
-		// oldName := name.New()
-		// oldName.ID = u.LCName
-		// if err := u.Update(c, u); err != nil {
-		// 	log.Errorf("User/Controller#Update u.update Error: %s", err)
-		// 	route := fmt.Sprintf("/user/show/%s", c.Param("uid"))
-		// 	c.Redirect(http.StatusSeeOther, route)
-		// 	return
-		// }
-		// newName := name.New()
-		// newName.GoogleID = u.GoogleID
-		// newName.ID = u.LCName
-
-		// log.Debug("Before datastore.RunInTransaction")
-		// err = datastore.RunInTransaction(c, func(tc *gin.Context) (err error) {
-		// 	nu := user.ToNUser(c, u)
-		// 	entities := []interface{}{u, nu, newName, oldName}
-		// 	if err = datastore.Put(tc, entities); err != nil {
-		// 		return
-		// 	}
-
-		// 	return datastore.Delete(tc, oldName)
-		// }, &datastore.TransactionOptions{XG: true})
-
-		client, err := user.Client(c)
-		if err != nil {
-			log.Errorf(err.Error())
-			return
-		}
-
-		_, err = client.Put(c, u2.Key, u2)
-		if err != nil {
-			log.Errorf(err.Error())
-			// route := fmt.Sprintf("/user/show/%s", c.Param("uid"))
-			// c.Redirect(http.StatusSeeOther, route)
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"cu": u2})
-	}
-}
+// func update(prefix string) gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		log.Debugf("Entering")
+// 		defer log.Debugf("Exiting")
+//
+// 		cu := user.Current(c)
+// 		if cu == user.None {
+// 			jerr(c, errUserNotFound)
+// 			return
+// 		}
+//
+// 		uid := c.Param("uid")
+// 		if uid != cu.ID() && !cu.Admin {
+// 			jsonMsg(c, "You can only edit your own account.")
+// 			return
+// 		}
+//
+// 		u, err := user.ByID(c, uid)
+// 		if err != nil {
+// 			log.Errorf(err.Error())
+// 			jsonMsg(c, "Unexpected error. Try again.")
+// 			return
+// 		}
+//
+// 		u2, err := fromJSON(c, u.ID(), u.Email)
+// 		if err != nil {
+// 			log.Errorf(err.Error())
+// 			jsonMsg(c, "Unexpected error. Try again.")
+// 			return
+// 		}
+//
+// 		uniq, err := uniqueName(c, u2)
+// 		if err != nil {
+// 			log.Errorf(err.Error())
+// 			jsonMsg(c, "Unexpected error. Try again.")
+// 			return
+// 		}
+//
+// 		if !uniq {
+// 			jsonMsg(c, "Screen Name: %s already in use.", u2.Name)
+// 			return
+// 		}
+//
+// 		// oldName := name.New()
+// 		// oldName.ID = u.LCName
+// 		// if err := u.Update(c, u); err != nil {
+// 		// 	log.Errorf("User/Controller#Update u.update Error: %s", err)
+// 		// 	route := fmt.Sprintf("/user/show/%s", c.Param("uid"))
+// 		// 	c.Redirect(http.StatusSeeOther, route)
+// 		// 	return
+// 		// }
+// 		// newName := name.New()
+// 		// newName.GoogleID = u.GoogleID
+// 		// newName.ID = u.LCName
+//
+// 		// log.Debug("Before datastore.RunInTransaction")
+// 		// err = datastore.RunInTransaction(c, func(tc *gin.Context) (err error) {
+// 		// 	nu := user.ToNUser(c, u)
+// 		// 	entities := []interface{}{u, nu, newName, oldName}
+// 		// 	if err = datastore.Put(tc, entities); err != nil {
+// 		// 		return
+// 		// 	}
+//
+// 		// 	return datastore.Delete(tc, oldName)
+// 		// }, &datastore.TransactionOptions{XG: true})
+//
+// 		client, err := user.Client(c)
+// 		if err != nil {
+// 			log.Errorf(err.Error())
+// 			return
+// 		}
+//
+// 		_, err = client.Put(c, u2.Key, u2)
+// 		if err != nil {
+// 			log.Errorf(err.Error())
+// 			// route := fmt.Sprintf("/user/show/%s", c.Param("uid"))
+// 			// c.Redirect(http.StatusSeeOther, route)
+// 			return
+// 		}
+//
+// 		c.JSON(http.StatusOK, gin.H{"cu": u2})
+// 	}
+// }
 
 func jsonMsg(c *gin.Context, format string, args ...interface{}) {
 	c.JSON(http.StatusOK, gin.H{"dev": isDev(), "msg": fmt.Sprintf(format, args...)})
 }
 
-func uniqueName(c *gin.Context, u1 user.User2) (bool, error) {
-	u2, err := user.ByLCName(c, u1.LCName)
-	if err != nil {
-		return false, err
-	}
-
-	if u1.LCName == u2.LCName && u1.ID() != u2.ID() {
-		return false, nil
-	}
-	return true, nil
-}
+// func uniqueName(c *gin.Context, u1 user.User) (bool, error) {
+// 	u2, err := user.ByLCName(c, u1.LCName)
+// 	if err != nil {
+// 		return false, err
+// 	}
+//
+// 	if u1.LCName == u2.LCName && u1.ID() != u2.ID() {
+// 		return false, nil
+// 	}
+// 	return true, nil
+// }
 
 // func GamesIndex(c *gin.Context) {
 // 	log.Debug("Entering")
@@ -568,24 +574,24 @@ func uniqueName(c *gin.Context, u1 user.User2) (bool, error) {
 // 	}
 // }
 
-func Login(c *gin.Context) {
-	log.Debugf("Entering")
-	defer log.Debugf("Exiting")
-
-	session := sessions.Default(c)
-	state := randToken()
-	session.Set("state", state)
-	session.Save()
-
-	if v := os.Getenv("DEV_LOGIN"); v == "true" {
-		c.HTML(http.StatusOK, "user/login", gin.H{
-			"Context":   c,
-			"VersionID": info.VersionID(c),
-		})
-	} else {
-		c.Redirect(http.StatusSeeOther, getLoginURL(c, state))
-	}
-}
+// func Login(c *gin.Context) {
+// 	log.Debugf("Entering")
+// 	defer log.Debugf("Exiting")
+//
+// 	session := sessions.Default(c)
+// 	state := randToken()
+// 	session.Set("state", state)
+// 	session.Save()
+//
+// 	if v := os.Getenv("DEV_LOGIN"); v == "true" {
+// 		c.HTML(http.StatusOK, "user/login", gin.H{
+// 			"Context":   c,
+// 			"VersionID": info.VersionID(c),
+// 		})
+// 	} else {
+// 		c.Redirect(http.StatusSeeOther, getLoginURL(c, state))
+// 	}
+// }
 
 // func sessionLogin(session sessions.Session) bool {
 // 	uinfo, ok := user.InfoFrom(session)
@@ -627,158 +633,158 @@ func randToken() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func DevAuth(c *gin.Context) {
-	log.Debugf("Entering")
-	defer log.Debugf("Exiting")
+// func DevAuth(c *gin.Context) {
+// 	log.Debugf("Entering")
+// 	defer log.Debugf("Exiting")
+//
+// 	email := c.PostForm("auth-email")
+// 	log.Debugf("email: %v", email)
+//
+// 	// Handle the exchange code to initiate a transport.
+// 	//	retrievedState := session.Get("state")
+// 	//	if retrievedState != c.Query("state") {
+// 	//		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Invalid session state: %s", retrievedState))
+// 	//		return
+// 	//	}
+// 	//
+// 	//	log.Debug("retrievedState: %#v", retrievedState)
+// 	//	ac := appengine.NewContext(c.Request)
+// 	//	tok, err := conf.Exchange(ac, c.Query("code"))
+// 	//	if err != nil {
+// 	//		log.Error("tok error: %#v\n %s", err, err)
+// 	//		c.AbortWithError(http.StatusBadRequest, err)
+// 	//		return
+// 	//	}
+// 	//
+// 	//	log.Debug("tok: %#v", tok)
+// 	//
+// 	//	client := conf.Client(ac, tok)
+// 	//	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+// 	//	if err != nil {
+// 	//		c.AbortWithError(http.StatusBadRequest, err)
+// 	//		return
+// 	//	}
+// 	//	defer resp.Body.Close()
+// 	//	body, err := ioutil.ReadAll(resp.Body)
+// 	//	if err != nil {
+// 	//		c.AbortWithError(http.StatusBadRequest, err)
+// 	//		return
+// 	//	}
+// 	//
+// 	//	info := user.Info{}
+// 	//	var b binding.BindingBody = binding.JSON
+// 	//	err = b.BindBody(body, &info)
+// 	//	if err != nil {
+// 	//		log.Error("BindBody error: %v", err)
+// 	//		c.AbortWithError(http.StatusBadRequest, err)
+// 	//		return
+// 	//	}
+// 	//	log.Debug("info: %#v", info)
+// 	//
+// 	u := user.New(user.ID(email))
+// 	u.LCName = user.LCName(email)
+// 	session := sessions.Default(c)
+// 	err := u.To(session)
+// 	if err != nil {
+// 		log.Errorf("session.Save error: %v", err)
+// 		c.AbortWithError(http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	log.Debugf("session saved")
+//
+// 	if _, err = user.ByID(c, u.ID()); err != nil {
+// 		if err != user.ErrNotFound {
+// 			log.Errorf("err: %#v user.ErrNotFound: %#v", err, user.ErrNotFound)
+// 			log.Errorf("err T: %T user.ErrNotFound: %T", err, user.ErrNotFound)
+// 			log.Errorf("user.ByGoogleID error: %v", err)
+// 			c.AbortWithError(http.StatusBadRequest, err)
+// 			return
+// 		}
+// 		c.Redirect(http.StatusSeeOther, "/user/new_dev")
+// 		return
+// 	}
+// 	c.Redirect(http.StatusSeeOther, "/")
+// }
 
-	email := c.PostForm("auth-email")
-	log.Debugf("email: %v", email)
-
-	// Handle the exchange code to initiate a transport.
-	//	retrievedState := session.Get("state")
-	//	if retrievedState != c.Query("state") {
-	//		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Invalid session state: %s", retrievedState))
-	//		return
-	//	}
-	//
-	//	log.Debug("retrievedState: %#v", retrievedState)
-	//	ac := appengine.NewContext(c.Request)
-	//	tok, err := conf.Exchange(ac, c.Query("code"))
-	//	if err != nil {
-	//		log.Error("tok error: %#v\n %s", err, err)
-	//		c.AbortWithError(http.StatusBadRequest, err)
-	//		return
-	//	}
-	//
-	//	log.Debug("tok: %#v", tok)
-	//
-	//	client := conf.Client(ac, tok)
-	//	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
-	//	if err != nil {
-	//		c.AbortWithError(http.StatusBadRequest, err)
-	//		return
-	//	}
-	//	defer resp.Body.Close()
-	//	body, err := ioutil.ReadAll(resp.Body)
-	//	if err != nil {
-	//		c.AbortWithError(http.StatusBadRequest, err)
-	//		return
-	//	}
-	//
-	//	info := user.Info{}
-	//	var b binding.BindingBody = binding.JSON
-	//	err = b.BindBody(body, &info)
-	//	if err != nil {
-	//		log.Error("BindBody error: %v", err)
-	//		c.AbortWithError(http.StatusBadRequest, err)
-	//		return
-	//	}
-	//	log.Debug("info: %#v", info)
-	//
-	u := user.New2(user.ID(email))
-	u.LCName = user.LCName(email)
-	session := sessions.Default(c)
-	err := u.To(session)
-	if err != nil {
-		log.Errorf("session.Save error: %v", err)
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	log.Debugf("session saved")
-
-	if _, err = user.ByID(c, u.ID()); err != nil {
-		if err != user.ErrNotFound {
-			log.Errorf("err: %#v user.ErrNotFound: %#v", err, user.ErrNotFound)
-			log.Errorf("err T: %T user.ErrNotFound: %T", err, user.ErrNotFound)
-			log.Errorf("user.ByGoogleID error: %v", err)
-			c.AbortWithError(http.StatusBadRequest, err)
-			return
-		}
-		c.Redirect(http.StatusSeeOther, "/user/new_dev")
-		return
-	}
-	c.Redirect(http.StatusSeeOther, "/")
-}
-
-func Auth(c *gin.Context) {
-	log.Debugf("Entering")
-	defer log.Debugf("Exiting")
-	// Handle the exchange code to initiate a transport.
-	session := sessions.Default(c)
-	retrievedState := session.Get("state")
-	if retrievedState != c.Query("state") {
-		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Invalid session state: %s", retrievedState))
-		return
-	}
-
-	log.Debugf("retrievedState: %#v", retrievedState)
-	ac := appengine.NewContext(c.Request)
-	conf := oauth2Config(c, scopes()...)
-	tok, err := conf.Exchange(ac, c.Query("code"))
-	if err != nil {
-		log.Errorf("tok error: %#v", err)
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	log.Debugf("tok: %#v", tok)
-
-	client := conf.Client(ac, tok)
-	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	log.Debugf("body: %s", body)
-
-	uinfo := user.Info{}
-	var b binding.BindingBody = binding.JSON
-	err = b.BindBody(body, &uinfo)
-	if err != nil {
-		log.Errorf("BindBody error: %v", err)
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	log.Debugf("info: %#v", uinfo)
-
-	id := user.ID(uinfo.Sub)
-	u, err := user.ByID(c, id)
-	if err == datastore.ErrNoSuchEntity {
-		u = user.New2(id)
-		u.Email = uinfo.Email
-		err = u.To(session)
-		if err != nil {
-			log.Errorf("session.Save error: %v", err)
-			c.AbortWithError(http.StatusBadRequest, err)
-			return
-		}
-		log.Debugf("session saved")
-		c.Redirect(http.StatusSeeOther, userNewPath)
-		return
-	}
-
-	if err != nil {
-		log.Errorf("user.ByID => \n\t id: %s\n\t error: %s", id, err)
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	err = u.To(session)
-	if err != nil {
-		log.Errorf("session.Save error: %v", err)
-		c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-	log.Debugf("session saved")
-
-	c.Redirect(http.StatusSeeOther, "/")
-}
+// func Auth(c *gin.Context) {
+// 	log.Debugf("Entering")
+// 	defer log.Debugf("Exiting")
+// 	// Handle the exchange code to initiate a transport.
+// 	session := sessions.Default(c)
+// 	retrievedState := session.Get("state")
+// 	if retrievedState != c.Query("state") {
+// 		c.AbortWithError(http.StatusUnauthorized, fmt.Errorf("Invalid session state: %s", retrievedState))
+// 		return
+// 	}
+//
+// 	log.Debugf("retrievedState: %#v", retrievedState)
+// 	ac := appengine.NewContext(c.Request)
+// 	conf := oauth2Config(c, scopes()...)
+// 	tok, err := conf.Exchange(ac, c.Query("code"))
+// 	if err != nil {
+// 		log.Errorf("tok error: %#v", err)
+// 		c.AbortWithError(http.StatusBadRequest, err)
+// 		return
+// 	}
+//
+// 	log.Debugf("tok: %#v", tok)
+//
+// 	client := conf.Client(ac, tok)
+// 	resp, err := client.Get("https://www.googleapis.com/oauth2/v3/userinfo")
+// 	if err != nil {
+// 		c.AbortWithError(http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	defer resp.Body.Close()
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		c.AbortWithError(http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	log.Debugf("body: %s", body)
+//
+// 	uinfo := user.Info{}
+// 	var b binding.BindingBody = binding.JSON
+// 	err = b.BindBody(body, &uinfo)
+// 	if err != nil {
+// 		log.Errorf("BindBody error: %v", err)
+// 		c.AbortWithError(http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	log.Debugf("info: %#v", uinfo)
+//
+// 	id := user.ID(uinfo.Sub)
+// 	u, err := user.ByID(c, id)
+// 	if err == datastore.ErrNoSuchEntity {
+// 		u = user.New(id)
+// 		u.Email = uinfo.Email
+// 		err = u.To(session)
+// 		if err != nil {
+// 			log.Errorf("session.Save error: %v", err)
+// 			c.AbortWithError(http.StatusBadRequest, err)
+// 			return
+// 		}
+// 		log.Debugf("session saved")
+// 		c.Redirect(http.StatusSeeOther, userNewPath)
+// 		return
+// 	}
+//
+// 	if err != nil {
+// 		log.Errorf("user.ByID => \n\t id: %s\n\t error: %s", id, err)
+// 		c.AbortWithError(http.StatusBadRequest, err)
+// 		return
+// 	}
+//
+// 	err = u.To(session)
+// 	if err != nil {
+// 		log.Errorf("session.Save error: %v", err)
+// 		c.AbortWithError(http.StatusBadRequest, err)
+// 		return
+// 	}
+// 	log.Debugf("session saved")
+//
+// 	c.Redirect(http.StatusSeeOther, "/")
+// }
 
 func scopes() []string {
 	return []string{"email", "profile", "openid"}

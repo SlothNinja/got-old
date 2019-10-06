@@ -3,10 +3,10 @@ package main
 import (
 	"net/http"
 
-	"bitbucket.org/SlothNinja/log"
-	"bitbucket.org/SlothNinja/status"
-	"bitbucket.org/SlothNinja/user"
 	"cloud.google.com/go/datastore"
+	"github.com/SlothNinja/log"
+	"github.com/SlothNinja/sn"
+	"github.com/SlothNinja/user"
 	"github.com/gin-gonic/gin"
 )
 
@@ -42,7 +42,7 @@ func (s server) jsonIndexAction() gin.HandlerFunc {
 		log.Debugf("Entering")
 		defer log.Debugf("Exiting")
 
-		stat := status.StatusFromParam(c)
+		stat := sn.StatusFromParam(c)
 		q := datastore.
 			NewQuery("Header").
 			Filter("Status=", int(stat)).

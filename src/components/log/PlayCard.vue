@@ -1,21 +1,13 @@
 <template>
-  <div>
-    <sn-player-btn :player='player' size='small'></sn-player-btn>
-    {{player.user.name}} played {{kind}} card.
-  </div>
+  <li>
+    Played {{kind}} card.
+  </li>
 </template>
 
 <script>
-  import Button from '@/components/player/Button'
-  import Player from '@/components/mixins/Player'
-
   export default {
-    mixins: [ Player ],
     name: 'sn-log-play-card-msg',
     props: [ 'value' ],
-    components: {
-      'sn-player-btn': Button
-    },
     computed: {
       kind: function () {
         var self = this
@@ -27,10 +19,6 @@
           default:
             return self.value.card.kind
         }
-      },
-      player: function () {
-        var self = this
-        return self.playerByPID(self.value.pid)
       }
     }
   }
